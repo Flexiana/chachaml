@@ -17,6 +17,7 @@
         (clojure.pprint/pprint (ml/run (:id (ml/last-run))))'"
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
+            [chachaml.registry :as reg]
             [clojure.pprint :as pp])
   (:import [java.util Random]))
 
@@ -93,11 +94,18 @@
                           :final-loss  final-loss
                           :w-abs-error (Math/abs ^double (- w (:true-w opts)))
                           :b-abs-error (Math/abs ^double (- b (:true-b opts)))})
-         (ml/log-artifact "model" {:type   :linear-regression
-                                   :w      w
-                                   :b      b
-                                   :loss   final-loss
-                                   :opts   opts})
+         (ml/log-artifact "model" {:type :linear-regression
+                                   :w    w
+                                   :b    b
+                                   :loss final-loss
+                                   :opts opts})
+         (reg/register-model "linear-regression-baseline"
+                             {:artifact    "model"
+                              :stage       :staging
+                              :description (format "epochs=%d lr=%.3g loss=%.4g"
+                                                   (:epochs opts)
+                                                   (:lr opts)
+                                                   final-loss)})
          (:id (ctx/current-run)))))))
 
 (defn -main

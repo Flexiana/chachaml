@@ -69,7 +69,23 @@
       created_at   INTEGER NOT NULL
     )"
    "CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id)"
-   "CREATE UNIQUE INDEX IF NOT EXISTS idx_artifacts_run_name ON artifacts(run_id, name)"])
+   "CREATE UNIQUE INDEX IF NOT EXISTS idx_artifacts_run_name ON artifacts(run_id, name)"
+   "CREATE TABLE IF NOT EXISTS models (
+      name        TEXT PRIMARY KEY,
+      description TEXT,
+      created_at  INTEGER NOT NULL
+    )"
+   "CREATE TABLE IF NOT EXISTS model_versions (
+      model_name  TEXT NOT NULL,
+      version     INTEGER NOT NULL,
+      run_id      TEXT NOT NULL,
+      artifact_id TEXT NOT NULL,
+      stage       TEXT NOT NULL DEFAULT 'none',
+      description TEXT,
+      created_at  INTEGER NOT NULL,
+      PRIMARY KEY (model_name, version)
+    )"
+   "CREATE INDEX IF NOT EXISTS idx_versions_stage ON model_versions(model_name, stage)"])
 
 (defn- migrate!
   "Apply (idempotent) schema statements against `connectable`. Accepts a
@@ -137,6 +153,36 @@
       (doseq [child (.listFiles f)]
         (delete-tree! child)))
     (.delete f)))
+
+(defn- ->model-map
+  "Convert a `models` row to a public model map."
+  [row]
+  (when row
+    {:name        (:models/name row)
+     :description (:models/description row)
+     :created-at  (:models/created_at row)}))
+
+(defn- stage->db [s] (when s (name s)))
+(defn- stage<-db [s] (when s (keyword s)))
+
+(defn- ->version-map
+  "Convert a `model_versions` row to a public version map."
+  [row]
+  (when row
+    (let [{model-name  :model_versions/model_name
+           v           :model_versions/version
+           rid         :model_versions/run_id
+           aid         :model_versions/artifact_id
+           stage       :model_versions/stage
+           description :model_versions/description
+           created-at  :model_versions/created_at} row]
+      (cond-> {:model-name  model-name
+               :version     v
+               :run-id      rid
+               :artifact-id aid
+               :stage       (stage<-db stage)
+               :created-at  created-at}
+        description (assoc :description description)))))
 
 (defn- ->artifact-map
   "Convert an `artifacts` row to a public artifact map."
@@ -360,6 +406,121 @@
           ["SELECT * FROM artifacts WHERE run_id = ?
             ORDER BY created_at, name" run-id])
          (mapv ->artifact-map)))
+
+  p/ModelRegistry
+  (-register-model! [_ model]
+    (jdbc/execute-one!
+     datasource
+     ["INSERT OR IGNORE INTO models (name, description, created_at)
+       VALUES (?, ?, ?)"
+      (:name model) (:description model) (System/currentTimeMillis)])
+    (->model-map
+     (jdbc/execute-one! datasource
+                        ["SELECT * FROM models WHERE name = ?" (:name model)])))
+
+  (-create-version! [_ version]
+    (jdbc/with-transaction [tx datasource]
+      (let [model-name (:model-name version)
+            next-v     (or (-> (jdbc/execute-one!
+                                tx
+                                ["SELECT COALESCE(MAX(version), 0) + 1 AS v
+                                  FROM model_versions WHERE model_name = ?"
+                                 model-name])
+                               :v)
+                           1)
+            stage      (or (:stage version) :none)
+            now        (System/currentTimeMillis)
+            row        {:model-name  model-name
+                        :version     next-v
+                        :run-id      (:run-id version)
+                        :artifact-id (:artifact-id version)
+                        :stage       stage
+                        :description (:description version)
+                        :created-at  now}]
+        ;; If promoting straight to :production, archive any prior production.
+        (when (= :production stage)
+          (jdbc/execute! tx
+                         ["UPDATE model_versions SET stage = 'archived'
+                           WHERE model_name = ? AND stage = 'production'"
+                          model-name]))
+        (jdbc/execute-one!
+         tx
+         ["INSERT INTO model_versions (model_name, version, run_id,
+                                       artifact_id, stage, description,
+                                       created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)"
+          model-name next-v (:run-id version) (:artifact-id version)
+          (stage->db stage) (:description version) now])
+        row)))
+
+  (-get-model [_ model-name]
+    (->model-map
+     (jdbc/execute-one! datasource
+                        ["SELECT * FROM models WHERE name = ?" model-name])))
+
+  (-get-version [_ model-name v]
+    (->version-map
+     (jdbc/execute-one!
+      datasource
+      ["SELECT * FROM model_versions WHERE model_name = ? AND version = ?"
+       model-name v])))
+
+  (-list-models [_]
+    (->> (jdbc/execute! datasource
+                        ["SELECT * FROM models ORDER BY name"])
+         (mapv ->model-map)))
+
+  (-list-versions [_ model-name]
+    (->> (jdbc/execute!
+          datasource
+          ["SELECT * FROM model_versions WHERE model_name = ?
+            ORDER BY version" model-name])
+         (mapv ->version-map)))
+
+  (-set-stage! [_ model-name v stage]
+    (jdbc/with-transaction [tx datasource]
+      (when (= :production stage)
+        (jdbc/execute! tx
+                       ["UPDATE model_versions SET stage = 'archived'
+                         WHERE model_name = ? AND stage = 'production'
+                           AND version <> ?"
+                        model-name v]))
+      (jdbc/execute-one!
+       tx
+       ["UPDATE model_versions SET stage = ?
+         WHERE model_name = ? AND version = ?"
+        (stage->db stage) model-name v]))
+    (->version-map
+     (jdbc/execute-one!
+      datasource
+      ["SELECT * FROM model_versions WHERE model_name = ? AND version = ?"
+       model-name v])))
+
+  (-find-version [_ model-name selector]
+    (let [row (cond
+                (:version selector)
+                (jdbc/execute-one!
+                 datasource
+                 ["SELECT * FROM model_versions
+                   WHERE model_name = ? AND version = ?"
+                  model-name (:version selector)])
+
+                (:stage selector)
+                (jdbc/execute-one!
+                 datasource
+                 ["SELECT * FROM model_versions
+                   WHERE model_name = ? AND stage = ?
+                   ORDER BY version DESC LIMIT 1"
+                  model-name (stage->db (:stage selector))])
+
+                :else
+                (jdbc/execute-one!
+                 datasource
+                 ["SELECT * FROM model_versions
+                   WHERE model_name = ? AND stage = 'production'
+                   ORDER BY version DESC LIMIT 1"
+                  model-name]))]
+      (->version-map row)))
 
   p/Lifecycle
   (close! [_]

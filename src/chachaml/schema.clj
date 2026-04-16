@@ -82,6 +82,37 @@
    [:hash         {:optional true} :string]
    [:created-at   :int]])
 
+(def Stage
+  "Model-version stage."
+  [:enum :none :staging :production :archived])
+
+(def Model
+  "Public model registry entry."
+  [:map
+   [:name        :string]
+   [:description {:optional true} [:maybe :string]]
+   [:created-at  :int]])
+
+(def Version
+  "Public model version map."
+  [:map
+   [:model-name  :string]
+   [:version     pos-int?]
+   [:run-id      :string]
+   [:artifact-id :string]
+   [:stage       Stage]
+   [:description {:optional true} [:maybe :string]]
+   [:created-at  :int]])
+
+(def RegisterOpts
+  "Options accepted by `chachaml.registry/register-model`."
+  [:map
+   [:artifact    {:optional true} :string]
+   [:artifact-id {:optional true} :string]
+   [:run-id      {:optional true} :string]
+   [:stage       {:optional true} Stage]
+   [:description {:optional true} [:maybe :string]]])
+
 (defn validate
   "Throw if `value` does not conform to `schema`. Returns `value` on
   success so it can be used inline."

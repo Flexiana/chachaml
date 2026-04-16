@@ -23,6 +23,9 @@
   :unused-import           {:level :error}
   :private-call            {:level :error}}
 
+ :lint-as
+ {chachaml.tracking/deftracked clojure.core/defn}
+
  :output {:format                     :text
           :show-rule-name-in-message? true
           :include-files              ["^src" "^test"]}}

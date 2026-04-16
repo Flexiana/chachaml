@@ -33,7 +33,7 @@ Full quality stack must be wired before feature work begins. See
 - [x] M1.2 SQLite schema + idempotent migrations
 - [x] M1.3 SQLite `RunStore` (CRUD: runs, params, metrics)
 - [x] M1.4 SQLite `ArtifactStore` — landed in M3
-- [ ] M1.5 SQLite `ModelRegistry` — deferred to M5
+- [x] M1.5 SQLite `ModelRegistry` — landed in M5
 - [x] M1.6 Store unit tests (in-memory + tempfile)
 
 `tags` are stored on the run as inline EDN (no separate table). A
@@ -58,18 +58,24 @@ Full quality stack must be wired before feature work begins. See
 
 ## M4 — Tracking Macro
 
-- M4.1 `deftracked` (args → params, captures return, errors → fail)
-- M4.2 Nested-run behavior when called inside a `with-run`
-- M4.3 Tests
+- [x] M4.1 `deftracked` (`defn`-shaped; opts map; auto `:tracked-fn` tag)
+- [x] M4.2 Nested-run behavior — `with-run` already propagates
+  `:parent-run-id`, so `deftracked` nests for free
+- [x] M4.3 Macro-expansion + behavior tests
+
+We do **not** auto-log function arguments as params: most ML inputs
+(datasets, models) are too large or not EDN-serializable. Users log
+explicitly inside the body.
 
 ## M5 — Model Registry
 
-- M5.1 `register-model` (creates model if missing, creates version from
-  current run + named artifact)
-- M5.2 `promote!` with stage transitions (auto-archive previous
-  `:production`)
-- M5.3 `load-model` with `:version` / `:stage` selectors
-- M5.4 Tests, including stage exclusivity
+- [x] M5.1 `register-model` (idempotent model row; creates version
+  from current run + named artifact)
+- [x] M5.2 `promote!` with stage transitions, auto-archives previous
+  `:production` (ADR-0006)
+- [x] M5.3 `load-model` with `:version` / `:stage` selectors; default
+  is latest production
+- [x] M5.4 Tests including property-based stage-exclusivity invariant
 
 ## M6 — REPL Ergonomics
 

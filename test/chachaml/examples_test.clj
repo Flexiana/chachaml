@@ -6,6 +6,7 @@
   Tagged `^:integration` because they execute real (small) ML loops."
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
+            [chachaml.registry :as reg]
             [chachaml.store.sqlite :as sqlite]
             [clojure.test :refer [deftest is testing]]
             [kmeans]
@@ -45,7 +46,14 @@
             (is (number? (:w model)))
             (is (number? (:b model)))
             (is (= (metric :final-w) (:w model)))
-            (is (= (metric :final-b) (:b model)))))))))
+            (is (= (metric :final-b) (:b model)))))
+        (testing "Model is registered in the registry as a staging version"
+          (let [versions (reg/model-versions "linear-regression-baseline")
+                from-reg (reg/load-model "linear-regression-baseline"
+                                         {:stage :staging})]
+            (is (pos? (count versions)))
+            (is (= :staging (:stage (last versions))))
+            (is (= :linear-regression (:type from-reg)))))))))
 
 (deftest ^:integration kmeans-converges-and-clusters
   (with-fresh-store
@@ -81,4 +89,8 @@
             (is (= :kmeans (:type model)))
             (is (= 3 (count (:centroids model))))
             (is (every? #(= 2 (count %)) (:centroids model)))
-            (is (= (metric :final-inertia) (:inertia model)))))))))
+            (is (= (metric :final-inertia) (:inertia model)))))
+        (testing "Model is registered in the registry as a staging version"
+          (let [from-reg (reg/load-model "kmeans-baseline" {:stage :staging})]
+            (is (= :kmeans (:type from-reg)))
+            (is (= 3 (count (:centroids from-reg))))))))))

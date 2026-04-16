@@ -6,17 +6,23 @@ tool and how tightly you want the two repos coupled.
 
 ## What's available right now
 
-The current state of `master` (M1 + M2 + M3) gives you a working core API:
+`master` covers M1 + M2 + M3 + M4 + M5 — a complete minimal MLOps
+loop:
 
 - Run lifecycle: `with-run`, `start-run!`, `end-run!`
 - Logging: `log-params`, `log-param`, `log-metrics`, `log-metric`
 - Artifacts: `log-artifact`, `log-file`, `load-artifact`, `list-artifacts`
+- Tracking macro: `chachaml.tracking/deftracked` — `defn`-shaped,
+  wraps the body in `with-run` automatically
+- Model registry (`chachaml.registry`): `register-model`, `models`,
+  `model`, `model-versions`, `promote!`, `load-model`
 - Querying: `runs`, `run`, `last-run`
 - Store binding: `use-store!`, `with-store`
 - Default SQLite store at `./chachaml.db` plus artifact directory at
   `./chachaml-artifacts/` (both auto-created)
 
-`deftracked` (M4) and the model registry (M5) are not yet implemented.
+REPL convenience helpers (M6 — `compare-runs`, pretty-printers) are
+the only remaining v0.1 items.
 
 ## Option 1 — `:local/root` in `deps.edn` (recommended)
 
@@ -31,12 +37,15 @@ dependency:
 Then from a REPL:
 
 ```clojure
-(require '[chachaml.core :as ml])
+(require '[chachaml.core :as ml]
+         '[chachaml.registry :as reg])
 
 (ml/with-run {:experiment "demo"}
   (ml/log-params {:lr 0.01})
   (ml/log-metric :acc 0.91)
-  (ml/log-artifact "model" {:weights [1.0 2.0] :bias 0.3}))
+  (ml/log-artifact "model" {:weights [1.0 2.0] :bias 0.3})
+  (reg/register-model "demo-classifier"
+                      {:artifact "model" :stage :staging}))
 
 (ml/last-run)
 ;; => {:id "…", :experiment "demo", :status :completed, …}
@@ -44,8 +53,26 @@ Then from a REPL:
 (:params (ml/run (:id (ml/last-run))))
 ;; => {:lr 0.01}
 
-(ml/load-artifact (:id (ml/last-run)) "model")
+(reg/load-model "demo-classifier" {:stage :staging})
 ;; => {:weights [1.0 2.0] :bias 0.3}
+
+(reg/promote! "demo-classifier" 1 :production)
+(reg/load-model "demo-classifier")  ;; => latest production
+```
+
+### `deftracked`
+
+```clojure
+(require '[chachaml.tracking :refer [deftracked]])
+
+(deftracked train [config]
+  (ml/log-params config)
+  (let [model (do-training config)]
+    (ml/log-metric :acc (eval-model model))
+    (ml/log-artifact "model" model)
+    model))
+
+(train {:lr 0.01 :epochs 50})  ; auto-creates a run, completes it
 ```
 
 Edits to chachaml's source are picked up the next time the consuming

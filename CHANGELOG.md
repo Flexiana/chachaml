@@ -68,3 +68,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     arbitrary nested EDN values for `:nippy` and `:edn`.
 - ADR-0005: filesystem-backed artifacts (rationale for keeping bytes
   outside SQLite).
+- M4 `chachaml.tracking/deftracked`: `defn`-shaped macro that wraps
+  the body in `with-run`. Supports docstring + opts map (`:experiment`,
+  `:name`, `:tags`); a `:tracked-fn` tag carrying the qualified symbol
+  is auto-added. Nests under existing runs. clj-kondo `:lint-as`
+  config registers it as a defn-like macro.
+- M5 model registry:
+  - `models` and `model_versions` tables added to the SQLite schema.
+  - SQLite `ModelRegistry` impl with atomic stage transitions in a
+    transaction.
+  - `chachaml.registry` public API: `register-model`, `models`,
+    `model`, `model-versions`, `promote!`, `load-model` (with
+    `:version`/`:stage` selectors; default = latest production).
+  - `Model`, `Version`, `Stage`, `RegisterOpts` Malli schemas.
+  - Property-based test asserting at most one `:production` version
+    per model survives arbitrary add/promote sequences.
+  - ADR-0006 records production-stage exclusivity.
+  - Both ML examples now register their trained model as a
+    `:staging` version of `linear-regression-baseline` /
+    `kmeans-baseline`. Tests round-trip through the registry too.

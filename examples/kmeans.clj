@@ -11,6 +11,7 @@
       clojure -M:examples -m kmeans"
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
+            [chachaml.registry :as reg]
             [clojure.pprint :as pp])
   (:import [java.util ArrayList Collections Random]))
 
@@ -126,6 +127,11 @@
                                    :iterations  iterations
                                    :converged?  converged?
                                    :opts        opts})
+         (reg/register-model "kmeans-baseline"
+                             {:artifact    "model"
+                              :stage       :staging
+                              :description (format "k=%d inertia=%.4g iter=%d"
+                                                   (:k opts) inertia iterations)})
          (:id (ctx/current-run)))))))
 
 (defn -main
