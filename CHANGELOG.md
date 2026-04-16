@@ -49,3 +49,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Each has a `run-experiment!` fn (called by tests against an
   in-memory store) and a `-main` (called by `clojure -M:examples
   -m <name>`).
+- M3 artifacts:
+  - `chachaml.serialize`: multimethod-dispatched encoding for
+    `:nippy` (default), `:edn`, `:bytes`, and `:file` formats.
+    Auto-detects `byte[]`/`File` and falls back to `:nippy`.
+  - SQLite `ArtifactStore` impl with filesystem-backed bytes under
+    `<db>-artifacts/<run-id>/<name>` (default
+    `./chachaml-artifacts/`). SHA-256 hash + size captured. Unique
+    `(run_id, name)` index rejects duplicates.
+  - `chachaml.core/log-artifact`, `log-file`, `load-artifact`,
+    `list-artifacts`. `(run id)` now also includes `:artifacts`.
+  - `Artifact` and `ArtifactFormat` Malli schemas.
+  - In-memory mode now creates a per-store temp artifact directory
+    that is removed on `close!`.
+  - Examples now persist their trained models as nippy artifacts;
+    tests round-trip and assert on the loaded values.
+  - Property-based serialize round-trip (`test.check`) covers
+    arbitrary nested EDN values for `:nippy` and `:edn`.
+- ADR-0005: filesystem-backed artifacts (rationale for keeping bytes
+  outside SQLite).

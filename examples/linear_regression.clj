@@ -93,6 +93,11 @@
                           :final-loss  final-loss
                           :w-abs-error (Math/abs ^double (- w (:true-w opts)))
                           :b-abs-error (Math/abs ^double (- b (:true-b opts)))})
+         (ml/log-artifact "model" {:type   :linear-regression
+                                   :w      w
+                                   :b      b
+                                   :loss   final-loss
+                                   :opts   opts})
          (:id (ctx/current-run)))))))
 
 (defn -main

@@ -27,10 +27,11 @@
   (-get-metrics [this run-id] "Return all metric rows for a run."))
 
 (defprotocol ArtifactStore
-  "Binary artifact persistence keyed by run + name."
-  (-put-artifact! [this run-id name bytes content-type] "Persist bytes; returns artifact map with id, hash, size.")
+  "Binary artifact persistence keyed by run + artifact name."
+  (-put-artifact! [this run-id art-name bytes content-type] "Persist bytes; returns artifact map with id, hash, size.")
   (-get-artifact [this artifact-id] "Return artifact metadata, or nil.")
   (-get-artifact-bytes [this artifact-id] "Return raw bytes for an artifact.")
+  (-find-artifact [this run-id art-name] "Find a named artifact for a run, or nil.")
   (-list-artifacts [this run-id] "Return seq of artifacts for a run."))
 
 (defprotocol ModelRegistry

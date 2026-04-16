@@ -38,7 +38,14 @@
                 "Loss must decrease from start to end")))
         (testing "Recovered weights are within tolerance of true values"
           (is (< (metric :w-abs-error) 0.5))
-          (is (< (metric :b-abs-error) 0.5)))))))
+          (is (< (metric :b-abs-error) 0.5)))
+        (testing "Trained model is persisted as a loadable artifact"
+          (let [model (ml/load-artifact run-id "model")]
+            (is (= :linear-regression (:type model)))
+            (is (number? (:w model)))
+            (is (number? (:b model)))
+            (is (= (metric :final-w) (:w model)))
+            (is (= (metric :final-b) (:b model)))))))))
 
 (deftest ^:integration kmeans-converges-and-clusters
   (with-fresh-store
@@ -68,4 +75,10 @@
                            (filter #(re-find #"^:size-c" (str (:key %))))
                            (mapv :value))]
             (is (= 3 (count sizes)))
-            (is (every? pos? sizes))))))))
+            (is (every? pos? sizes))))
+        (testing "Trained model is persisted as a loadable artifact"
+          (let [model (ml/load-artifact run-id "model")]
+            (is (= :kmeans (:type model)))
+            (is (= 3 (count (:centroids model))))
+            (is (every? #(= 2 (count %)) (:centroids model)))
+            (is (= (metric :final-inertia) (:inertia model)))))))))

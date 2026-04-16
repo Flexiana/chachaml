@@ -32,7 +32,7 @@ Full quality stack must be wired before feature work begins. See
   `Lifecycle`) — landed in M0
 - [x] M1.2 SQLite schema + idempotent migrations
 - [x] M1.3 SQLite `RunStore` (CRUD: runs, params, metrics)
-- [ ] M1.4 SQLite `ArtifactStore` — deferred to M3
+- [x] M1.4 SQLite `ArtifactStore` — landed in M3
 - [ ] M1.5 SQLite `ModelRegistry` — deferred to M5
 - [x] M1.6 Store unit tests (in-memory + tempfile)
 
@@ -50,11 +50,11 @@ Full quality stack must be wired before feature work begins. See
 
 ## M3 — Artifacts
 
-- M3.1 Serialization multimethod: `:bytes` / `:file` / `:edn` / `:nippy`
-  (default)
-- M3.2 `log-artifact` / `log-file`
-- M3.3 `load-artifact` round-trip
-- M3.4 Hash + size captured
+- [x] M3.1 Serialization multimethod: `:bytes` / `:file` / `:edn` / `:nippy`
+  (default), with auto-detection
+- [x] M3.2 `log-artifact` / `log-file`
+- [x] M3.3 `load-artifact` round-trip (incl. property-based test)
+- [x] M3.4 SHA-256 hash + size captured per artifact
 
 ## M4 — Tracking Macro
 

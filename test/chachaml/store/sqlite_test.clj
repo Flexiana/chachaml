@@ -152,6 +152,64 @@
 
 ;; --- Lifecycle / file-backed ------------------------------------------
 
+;; --- Artifacts --------------------------------------------------------
+
+(defn- bytes-of [^String s]
+  (.getBytes s "UTF-8"))
+
+(deftest put-and-list-artifacts
+  (let [store (mem-store)
+        run   (new-run {})]
+    (p/-create-run! store run)
+    (let [a1 (p/-put-artifact! store (:id run) "model.bin"
+                               (bytes-of "abc") "application/octet-stream")
+          a2 (p/-put-artifact! store (:id run) "report.txt"
+                               (bytes-of "hello") "text/plain")]
+      (is (string? (:id a1)))
+      (is (= 3 (:size a1)))
+      (is (= 5 (:size a2)))
+      (is (string? (:hash a1)))
+      (is (= 64 (count (:hash a1))) "SHA-256 hex is 64 chars")
+      (is (= 2 (count (p/-list-artifacts store (:id run))))))))
+
+(deftest get-and-find-artifact
+  (let [store (mem-store)
+        run   (new-run {})]
+    (p/-create-run! store run)
+    (let [art (p/-put-artifact! store (:id run) "blob"
+                                (bytes-of "data") "application/octet-stream")]
+      (is (= "data" (String. ^bytes (p/-get-artifact-bytes store (:id art)))))
+      (is (= (:id art) (:id (p/-find-artifact store (:id run) "blob"))))
+      (is (nil? (p/-find-artifact store (:id run) "missing"))))))
+
+(deftest duplicate-artifact-name-rejected
+  (let [store (mem-store)
+        run   (new-run {})]
+    (p/-create-run! store run)
+    (p/-put-artifact! store (:id run) "x" (bytes-of "a") "")
+    (is (thrown? Exception
+                 (p/-put-artifact! store (:id run) "x"
+                                   (bytes-of "b") "")))))
+
+(deftest ^:integration artifacts-persist-across-opens
+  (let [tmp (File/createTempFile "chachaml-art-" ".db")
+        tmp-path (.getAbsolutePath tmp)
+        run (new-run {})]
+    (try
+      (let [s1 (sqlite/open {:path tmp-path})]
+        (p/-create-run! s1 run)
+        (p/-put-artifact! s1 (:id run) "model.bin"
+                          (bytes-of "trained") "application/octet-stream")
+        (p/close! s1))
+      (let [s2 (sqlite/open {:path tmp-path})
+            art (p/-find-artifact s2 (:id run) "model.bin")]
+        (is (= "trained"
+               (String. ^bytes (p/-get-artifact-bytes s2 (:id art)))))
+        (p/close! s2))
+      (finally
+        (.delete tmp)
+        (#'sqlite/delete-tree! (java.io.File. (#'sqlite/default-artifact-dir tmp-path)))))))
+
 (deftest ^:integration tempfile-backed-store-roundtrip
   (testing "Schema persists across opens; data round-trips through a real file"
     (let [tmp (File/createTempFile "chachaml-" ".db")

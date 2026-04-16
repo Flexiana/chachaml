@@ -6,16 +6,17 @@ tool and how tightly you want the two repos coupled.
 
 ## What's available right now
 
-The current state of `master` (M1 + M2) gives you a working core API:
+The current state of `master` (M1 + M2 + M3) gives you a working core API:
 
-- `chachaml.core/with-run`, `start-run!`, `end-run!`
-- `chachaml.core/log-params`, `log-param`, `log-metrics`, `log-metric`
-- `chachaml.core/runs`, `run`, `last-run`
-- `chachaml.core/use-store!`, `with-store`
-- Default SQLite store at `./chachaml.db` (auto-created on first call)
+- Run lifecycle: `with-run`, `start-run!`, `end-run!`
+- Logging: `log-params`, `log-param`, `log-metrics`, `log-metric`
+- Artifacts: `log-artifact`, `log-file`, `load-artifact`, `list-artifacts`
+- Querying: `runs`, `run`, `last-run`
+- Store binding: `use-store!`, `with-store`
+- Default SQLite store at `./chachaml.db` plus artifact directory at
+  `./chachaml-artifacts/` (both auto-created)
 
-Artifacts (M3), `deftracked` (M4), and the model registry (M5) are not
-yet implemented.
+`deftracked` (M4) and the model registry (M5) are not yet implemented.
 
 ## Option 1 — `:local/root` in `deps.edn` (recommended)
 
@@ -34,13 +35,17 @@ Then from a REPL:
 
 (ml/with-run {:experiment "demo"}
   (ml/log-params {:lr 0.01})
-  (ml/log-metric :acc 0.91))
+  (ml/log-metric :acc 0.91)
+  (ml/log-artifact "model" {:weights [1.0 2.0] :bias 0.3}))
 
 (ml/last-run)
 ;; => {:id "…", :experiment "demo", :status :completed, …}
 
 (:params (ml/run (:id (ml/last-run))))
 ;; => {:lr 0.01}
+
+(ml/load-artifact (:id (ml/last-run)) "model")
+;; => {:weights [1.0 2.0] :bias 0.3}
 ```
 
 Edits to chachaml's source are picked up the next time the consuming

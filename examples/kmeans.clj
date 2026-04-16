@@ -110,7 +110,7 @@
                                                 :max-iter :seed])
                              :true-centers true-centers
                              :n-points (count points)))
-       (let [{:keys [assignments inertia iterations converged?]}
+       (let [{:keys [centroids assignments inertia iterations converged?]}
              (fit points opts)
              sizes (frequencies assignments)]
          (ml/log-metrics
@@ -119,6 +119,13 @@
                  :converged        (if converged? 1.0 0.0)}
                 (map (fn [[c n]] [(keyword (str "size-c" c)) (double n)]))
                 sizes))
+         (ml/log-artifact "model" {:type        :kmeans
+                                   :centroids   centroids
+                                   :assignments assignments
+                                   :inertia     inertia
+                                   :iterations  iterations
+                                   :converged?  converged?
+                                   :opts        opts})
          (:id (ctx/current-run)))))))
 
 (defn -main

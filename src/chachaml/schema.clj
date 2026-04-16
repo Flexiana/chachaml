@@ -66,6 +66,22 @@
    [:parent-run-id {:optional true} :string]
    [:limit         {:optional true} pos-int?]])
 
+(def ArtifactFormat
+  "Built-in artifact formats accepted by `log-artifact`."
+  [:enum :nippy :edn :bytes :file])
+
+(def Artifact
+  "Public artifact metadata as returned from the store."
+  [:map
+   [:id           :string]
+   [:run-id       :string]
+   [:name         :string]
+   [:path         :string]
+   [:content-type {:optional true} :string]
+   [:size         {:optional true} :int]
+   [:hash         {:optional true} :string]
+   [:created-at   :int]])
+
 (defn validate
   "Throw if `value` does not conform to `schema`. Returns `value` on
   success so it can be used inline."

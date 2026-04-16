@@ -2,8 +2,9 @@
   "Public API for chachaml.
 
   Run lifecycle (`with-run`, `start-run!`, `end-run!`), logging
-  (`log-params`, `log-metrics`, `log-metric`), and querying (`runs`,
-  `run`, `last-run`).
+  (`log-params`, `log-metrics`, `log-metric`), artifacts
+  (`log-artifact`, `log-file`, `load-artifact`, `list-artifacts`), and
+  querying (`runs`, `run`, `last-run`).
 
   Idiomatic usage from a REPL:
 
@@ -16,11 +17,12 @@
 
       (ml/last-run)        ; => the run map just completed
 
-  Artifacts (M3), the model registry (M5), `deftracked` (M4), and the
-  remaining REPL helpers (M6) land in subsequent milestones."
+  The model registry (M5), `deftracked` (M4), and the remaining REPL
+  helpers (M6) land in subsequent milestones."
   (:require [chachaml.context :as ctx]
             [chachaml.env :as env]
             [chachaml.schema :as schema]
+            [chachaml.serialize :as serialize]
             [chachaml.store.protocol :as p]
             [chachaml.store.sqlite :as sqlite]))
 
@@ -161,17 +163,66 @@
   ([k v]      (log-metrics {k v} {}))
   ([k v step] (log-metrics {k v} {:step step})))
 
+;; --- Artifacts --------------------------------------------------------
+
+(defn log-artifact
+  "Persist `value` as an artifact named `art-name` on the current run.
+  Returns the artifact metadata map.
+
+  `opts` may include:
+  - `:format`        One of `:nippy` (default for arbitrary values),
+                     `:edn`, `:bytes` (for `byte[]`), `:file` (for
+                     `java.io.File`/path string).
+  - `:content-type`  Override the default MIME content type.
+
+  Format auto-detection: `byte[]` → `:bytes`, `java.io.File` →
+  `:file`, anything else → `:nippy`."
+  ([art-name value] (log-artifact art-name value {}))
+  ([art-name value opts]
+   (let [fmt (or (:format opts) (serialize/auto-format value))
+         {data :bytes default-ct :content-type}
+         (serialize/encode {:format fmt :value value})
+         ct  (or (:content-type opts) default-ct)]
+     (p/-put-artifact! (ctx/current-store)
+                       (:id (ctx/require-run!))
+                       art-name data ct))))
+
+(defn log-file
+  "Persist a local file as an artifact attached to the current run.
+  `path-or-file` may be a path string or `java.io.File`."
+  [art-name path-or-file]
+  (log-artifact art-name path-or-file {:format :file}))
+
+(defn load-artifact
+  "Load and deserialize an artifact attached to a run.
+
+  Format is determined by the artifact's stored content type
+  (`:nippy`/`:edn` for typed values, `:bytes` otherwise). Returns nil
+  if no such artifact exists."
+  [run-id art-name]
+  (let [store (ctx/current-store)]
+    (when-let [art (p/-find-artifact store run-id art-name)]
+      (let [data (p/-get-artifact-bytes store (:id art))
+            fmt  (serialize/format-from-content-type (:content-type art))]
+        (serialize/decode {:format fmt :bytes data})))))
+
+(defn list-artifacts
+  "List metadata for all artifacts attached to a run, in creation order."
+  [run-id]
+  (p/-list-artifacts (ctx/current-store) run-id))
+
 ;; --- Querying ---------------------------------------------------------
 
 (defn run
-  "Fetch a run by id, returning the full run map (with params and
-  metrics included), or nil if no such run exists."
+  "Fetch a run by id, returning the full run map (with params, metrics,
+  and artifact metadata included), or nil if no such run exists."
   [run-id]
   (let [store (ctx/current-store)]
     (when-let [r (p/-get-run store run-id)]
       (assoc r
-             :params  (p/-get-params store run-id)
-             :metrics (p/-get-metrics store run-id)))))
+             :params    (p/-get-params store run-id)
+             :metrics   (p/-get-metrics store run-id)
+             :artifacts (p/-list-artifacts store run-id)))))
 
 (defn runs
   "List runs matching `filters`, most recent first.

@@ -106,6 +106,69 @@
       (ml/with-run {}
         (is (thrown? Exception (ml/log-metrics {:bad "string"})))))))
 
+;; --- Artifacts --------------------------------------------------------
+
+(deftest log-and-load-nippy-artifact
+  (with-fresh-store
+    (fn []
+      (let [model {:weights [1.0 2.0 3.0] :bias 0.5 :name "linreg"}
+            run-id (atom nil)]
+        (ml/with-run {}
+          (reset! run-id (:id (ctx/current-run)))
+          (let [art (ml/log-artifact "model" model)]
+            (is (= "model" (:name art)))
+            (is (= "application/x-nippy" (:content-type art)))
+            (is (pos? (:size art)))
+            (is (= 64 (count (:hash art))))))
+        (is (= model (ml/load-artifact @run-id "model")))))))
+
+(deftest log-and-load-edn-artifact
+  (with-fresh-store
+    (fn []
+      (let [run-id (atom nil)]
+        (ml/with-run {}
+          (reset! run-id (:id (ctx/current-run)))
+          (ml/log-artifact "report" {:summary "ok"} {:format :edn}))
+        (is (= {:summary "ok"} (ml/load-artifact @run-id "report")))))))
+
+(deftest log-file-artifact
+  (with-fresh-store
+    (fn []
+      (let [tmp (java.io.File/createTempFile "chachaml-test-" ".bin")
+            run-id (atom nil)]
+        (try
+          (spit tmp "file contents")
+          (ml/with-run {}
+            (reset! run-id (:id (ctx/current-run)))
+            (ml/log-file "uploaded.bin" tmp))
+          (is (= "file contents"
+                 (String. ^bytes (ml/load-artifact @run-id "uploaded.bin"))))
+          (finally (.delete tmp)))))))
+
+(deftest list-and-run-include-artifacts
+  (with-fresh-store
+    (fn []
+      (let [run-id (atom nil)]
+        (ml/with-run {}
+          (reset! run-id (:id (ctx/current-run)))
+          (ml/log-artifact "a" {:x 1})
+          (ml/log-artifact "b" {:y 2}))
+        (is (= 2 (count (ml/list-artifacts @run-id))))
+        (is (= 2 (count (:artifacts (ml/run @run-id)))))))))
+
+(deftest load-artifact-missing-returns-nil
+  (with-fresh-store
+    (fn []
+      (let [run-id (atom nil)]
+        (ml/with-run {}
+          (reset! run-id (:id (ctx/current-run))))
+        (is (nil? (ml/load-artifact @run-id "no-such-art")))))))
+
+(deftest log-artifact-outside-run-throws
+  (with-fresh-store
+    (fn []
+      (is (thrown? Exception (ml/log-artifact "x" {:a 1}))))))
+
 ;; --- Querying ---------------------------------------------------------
 
 (deftest runs-orders-newest-first
