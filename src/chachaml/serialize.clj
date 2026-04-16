@@ -38,13 +38,16 @@
    "application/octet-stream" :bytes})
 
 (defn auto-format
-  "Return the default `:format` keyword for a value based on its type."
+  "Return the default `:format` keyword for a value based on its type.
+
+  Strings are intentionally treated as data and serialised via `:nippy`
+  rather than interpreted as file paths — pass `(io/file path)` or
+  `(log-file …)` when you actually mean a file."
   [v]
   (cond
-    (bytes? v)            :bytes
-    (instance? File v)    :file
-    (string? v)           :nippy ; strings serialise fine through nippy; treat as data, not a path
-    :else                 :nippy))
+    (bytes? v)         :bytes
+    (instance? File v) :file
+    :else              :nippy))
 
 (defmulti encode
   "Encode a value into a `{:bytes byte-array, :content-type string}`

@@ -114,12 +114,12 @@
    [:description {:optional true} [:maybe :string]]])
 
 (defn validate
-  "Throw if `value` does not conform to `schema`. Returns `value` on
-  success so it can be used inline."
+  "Throw if `value` does not conform to `schema`; otherwise return
+  `value`. Used for argument validation at API boundaries."
   [schema value]
   (if (m/validate schema value)
     value
     (throw (ex-info "chachaml schema violation"
-                    {:schema   schema
-                     :value    value
-                     :explain  (m/explain schema value)}))))
+                    {:schema  schema
+                     :value   value
+                     :explain (m/explain schema value)}))))

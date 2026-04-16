@@ -37,9 +37,10 @@
 
 ;; --- Tabular runs listing -------------------------------------------
 
-(defn- pad [s n]
-  (let [s (str s)]
-    (if (>= (count s) n) s (str s (apply str (repeat (- n (count s)) " "))))))
+(defn- pad
+  "Right-pad `s` to width `n` with spaces. Does not truncate."
+  [s n]
+  (format (str "%-" n "s") (str s)))
 
 (defn runs-table
   "Print a one-row-per-run summary of recent runs. Accepts the same

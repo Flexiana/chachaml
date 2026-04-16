@@ -2,13 +2,11 @@
   "Tests for the deftracked macro: shape, behavior, and nesting."
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
-            [chachaml.store.sqlite :as sqlite]
+            [chachaml.test-helpers :as h]
             [chachaml.tracking :refer [deftracked]]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing use-fixtures]]))
 
-(defn- with-fresh-store [f]
-  (binding [ctx/*store* (sqlite/open {:in-memory? true})]
-    (f)))
+(use-fixtures :each h/with-fresh-store)
 
 ;; --- Macro expansion shape -------------------------------------------
 
@@ -47,24 +45,20 @@
   (throw (ex-info "boom" {})))
 
 (deftest tracked-fn-creates-completed-run-and-returns-value
-  (with-fresh-store
-    (fn []
-      (let [result (greet "world")]
-        (is (= "hello, world" result))
-        (let [r (ml/last-run)]
-          (is (= :completed (:status r)))
-          (is (= "greet" (:name r)))
-          (is (= "chachaml.tracking-test/greet" (:tracked-fn (:tags r))))
-          (is (= {:name "world"}
-                 (:params (ml/run (:id r))))))))))
+  (let [result (greet "world")]
+    (is (= "hello, world" result))
+    (let [r (ml/last-run)]
+      (is (= :completed (:status r)))
+      (is (= "greet" (:name r)))
+      (is (= "chachaml.tracking-test/greet" (:tracked-fn (:tags r))))
+      (is (= {:name "world"}
+             (:params (ml/run (:id r))))))))
 
 (deftest tracked-fn-marks-failed-on-exception
-  (with-fresh-store
-    (fn []
-      (try (exploder :ignored) (catch Exception _))
-      (let [r (ml/last-run)]
-        (is (= :failed (:status r)))
-        (is (= "boom" (:error r)))))))
+  (try (exploder :ignored) (catch Exception _))
+  (let [r (ml/last-run)]
+    (is (= :failed (:status r)))
+    (is (= "boom" (:error r)))))
 
 (deftracked inner-call
   "Trivial nested-tracking helper."
@@ -77,20 +71,18 @@
   (inner-call))
 
 (deftest tracked-fn-nests-under-existing-run
-  (with-fresh-store
-    (fn []
-      (let [outer-id (atom nil)]
-        (ml/with-run {:experiment "manual-outer"}
-          (reset! outer-id (:id (ctx/current-run)))
-          (outer))
-        (let [runs (ml/runs)
-              inner-run (first (filter #(= "inner-call" (:name %)) runs))
-              inner-parent (:parent-run-id inner-run)
-              outer-fn-run (first (filter #(= "outer" (:name %)) runs))]
-          (is (= (:id outer-fn-run) inner-parent)
-              "inner deftracked nests under the outer deftracked")
-          (is (= @outer-id (:parent-run-id outer-fn-run))
-              "outer deftracked nests under the user's manual with-run"))))))
+  (let [outer-id (atom nil)]
+    (ml/with-run {:experiment "manual-outer"}
+      (reset! outer-id (:id (ctx/current-run)))
+      (outer))
+    (let [runs (ml/runs)
+          inner-run (first (filter #(= "inner-call" (:name %)) runs))
+          inner-parent (:parent-run-id inner-run)
+          outer-fn-run (first (filter #(= "outer" (:name %)) runs))]
+      (is (= (:id outer-fn-run) inner-parent)
+          "inner deftracked nests under the outer deftracked")
+      (is (= @outer-id (:parent-run-id outer-fn-run))
+          "outer deftracked nests under the user's manual with-run"))))
 
 (deftracked tagged-fn
   "Tracked fn that overrides experiment, name, and tags."
@@ -99,13 +91,11 @@
   :ok)
 
 (deftest tracked-fn-respects-opts
-  (with-fresh-store
-    (fn []
-      (tagged-fn)
-      (let [r (ml/last-run)]
-        (is (= "custom-exp" (:experiment r)))
-        (is (= "renamed"    (:name r)))
-        (is (= "ci"         (:author (:tags r))))
-        (testing "tracked-fn tag is auto-added even when :tags overrides exist"
-          (is (= "chachaml.tracking-test/tagged-fn"
-                 (:tracked-fn (:tags r)))))))))
+  (tagged-fn)
+  (let [r (ml/last-run)]
+    (is (= "custom-exp" (:experiment r)))
+    (is (= "renamed"    (:name r)))
+    (is (= "ci"         (:author (:tags r))))
+    (testing "tracked-fn tag is auto-added even when :tags overrides exist"
+      (is (= "chachaml.tracking-test/tagged-fn"
+             (:tracked-fn (:tags r)))))))

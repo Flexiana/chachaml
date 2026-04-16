@@ -1,12 +1,11 @@
 (ns chachaml.store.sqlite
-  "SQLite-backed implementation of `chachaml.store.protocol`'s
-  `RunStore`, `ArtifactStore`, and `Lifecycle` protocols. The
-  `ModelRegistry` impl lands in M5.
+  "SQLite-backed implementation of all four `chachaml.store.protocol`
+  protocols (`RunStore`, `ArtifactStore`, `ModelRegistry`, `Lifecycle`).
 
   This is the default backend. A single SQLite file holds runs, params,
-  metrics, and artifact metadata. Artifact bytes live on the filesystem
-  under an artifact directory paired with the database file (see
-  `default-artifact-dir`).
+  metrics, artifact metadata, and the model registry. Artifact bytes
+  live on the filesystem under an artifact directory paired with the
+  database file (see `default-artifact-dir`).
 
   Use `(open)` for the default `./chachaml.db` + `./chachaml-artifacts/`,
   or `(open {:path \"…\"})` for a specific location. `:in-memory? true`
@@ -115,8 +114,16 @@
     (keyword? k) (subs (str k) 1)
     :else        (str k)))
 
-(defn- status->db [s] (when s (name s)))
-(defn- status<-db [s] (when s (keyword s)))
+(defn- kw->db
+  "Encode a keyword as the TEXT used by enum columns (status, stage).
+  Returns nil when input is nil."
+  [k]
+  (when k (name k)))
+
+(defn- db->kw
+  "Inverse of `kw->db`."
+  [s]
+  (when s (keyword s)))
 
 ;; --- Artifact filesystem layer ---------------------------------------
 
@@ -162,9 +169,6 @@
      :description (:models/description row)
      :created-at  (:models/created_at row)}))
 
-(defn- stage->db [s] (when s (name s)))
-(defn- stage<-db [s] (when s (keyword s)))
-
 (defn- ->version-map
   "Convert a `model_versions` row to a public version map."
   [row]
@@ -180,7 +184,7 @@
                :version     v
                :run-id      rid
                :artifact-id aid
-               :stage       (stage<-db stage)
+               :stage       (db->kw stage)
                :created-at  created-at}
         description (assoc :description description)))))
 
@@ -223,7 +227,7 @@
            parent-run-id :runs/parent_run_id} row]
       (cond-> {:id         run-id
                :experiment experiment
-               :status     (status<-db status)
+               :status     (db->kw status)
                :start-time start-time}
         run-name      (assoc :name run-name)
         end-time      (assoc :end-time end-time)
@@ -245,7 +249,7 @@
 
 (defn- update-value [k v]
   (case k
-    :status (status->db v)
+    :status (kw->db v)
     (:tags :env) (enc v)
     v))
 
@@ -262,7 +266,7 @@
   [filters]
   (let [pairs (keep (fn [[k v]]
                       (when-let [col (query-key->col k)]
-                        [col (cond-> v (= k :status) status->db)]))
+                        [col (cond-> v (= k :status) kw->db)]))
                     filters)]
     (if (seq pairs)
       [(str "WHERE " (str/join " AND " (map #(str (first %) " = ?") pairs)))
@@ -290,7 +294,7 @@
       (:id run)
       (or (:experiment run) "default")
       (:name run)
-      (status->db (:status run))
+      (kw->db (:status run))
       (:start-time run)
       (:end-time run)
       (:error run)
@@ -450,7 +454,7 @@
                                        created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)"
           model-name next-v (:run-id version) (:artifact-id version)
-          (stage->db stage) (:description version) now])
+          (kw->db stage) (:description version) now])
         row)))
 
   (-get-model [_ model-name]
@@ -489,7 +493,7 @@
        tx
        ["UPDATE model_versions SET stage = ?
          WHERE model_name = ? AND version = ?"
-        (stage->db stage) model-name v]))
+        (kw->db stage) model-name v]))
     (->version-map
      (jdbc/execute-one!
       datasource
@@ -511,7 +515,7 @@
                  ["SELECT * FROM model_versions
                    WHERE model_name = ? AND stage = ?
                    ORDER BY version DESC LIMIT 1"
-                  model-name (stage->db (:stage selector))])
+                  model-name (kw->db (:stage selector))])
 
                 :else
                 (jdbc/execute-one!

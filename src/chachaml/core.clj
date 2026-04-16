@@ -17,8 +17,9 @@
 
       (ml/last-run)        ; => the run map just completed
 
-  The model registry (M5), `deftracked` (M4), and the remaining REPL
-  helpers (M6) land in subsequent milestones."
+  See `chachaml.tracking/deftracked` for an auto-wrapping macro,
+  `chachaml.registry` for the model registry, and `chachaml.repl`
+  for `inspect` / `runs-table` / `compare-runs`."
   (:require [chachaml.context :as ctx]
             [chachaml.env :as env]
             [chachaml.schema :as schema]

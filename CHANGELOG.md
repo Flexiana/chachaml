@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-(no changes yet)
+### Changed
+
+- Cleanup pass after the v0.1.0 review:
+  - Stale namespace docstrings in `chachaml.core` and
+    `chachaml.store.sqlite` updated to reflect shipped milestones.
+  - Collapsed duplicated `status->db`/`stage->db` (and inverse)
+    helpers into a single `kw->db`/`db->kw` pair in
+    `chachaml.store.sqlite`.
+  - `chachaml.serialize/auto-format` no longer has a dead `:nippy`
+    branch for strings; behavior is unchanged (strings still go to
+    `:nippy`) but documented as intentional.
+  - `chachaml.repl/pad` reduced to a one-line `format` call.
+  - `chachaml.schema/validate` docstring tightened (no behavior
+    change).
+
+### Internal
+
+- New shared test fixture `chachaml.test-helpers/with-fresh-store`,
+  used via `(use-fixtures :each h/with-fresh-store)` across
+  `core_test`, `registry_test`, `repl_test`, `tracking_test`, and
+  `examples_test`. Drops ~30 lines of inline `(with-fresh-store
+  (fn [] …))` boilerplate per file.
+- New `use-store!-returns-resolved-store` test for the
+  store-value path.
 
 ## [0.1.0] - 2026-04-16
 
