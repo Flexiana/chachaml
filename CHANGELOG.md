@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.1.0] - 2026-04-16
+
+First feature-complete release covering the full minimal MLOps loop:
+run tracking, artifacts, model registry, tracking macro, REPL helpers.
+
 ### Added
 
 - M0 project skeleton: dual build (deps.edn + project.clj), Babashka task
