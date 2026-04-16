@@ -16,6 +16,7 @@
   :target-path    "target/%s"
 
   :profiles
-  {:test {:dependencies [[org.clojure/test.check "1.1.1"]]}
-   :dev  {:source-paths ["dev"]
+  {:test {:dependencies [[org.clojure/test.check "1.1.1"]]
+          :source-paths ["examples"]}
+   :dev  {:source-paths ["dev" "examples"]
           :dependencies [[org.clojure/test.check "1.1.1"]]}})

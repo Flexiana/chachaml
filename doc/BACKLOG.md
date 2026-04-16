@@ -28,22 +28,25 @@ Full quality stack must be wired before feature work begins. See
 
 ## M1 — Storage Foundation
 
-- M1.1 Store protocols (`RunStore`, `ArtifactStore`, `ModelRegistry`,
-  `Lifecycle`)
-- M1.2 SQLite schema + idempotent migrations
-- M1.3 SQLite `RunStore` (CRUD: runs, params, metrics, tags)
-- M1.4 SQLite `ArtifactStore` (filesystem-backed, hash + size)
-- M1.5 SQLite `ModelRegistry`
-- M1.6 Store unit tests against in-memory SQLite
+- [x] M1.1 Store protocols (`RunStore`, `ArtifactStore`, `ModelRegistry`,
+  `Lifecycle`) — landed in M0
+- [x] M1.2 SQLite schema + idempotent migrations
+- [x] M1.3 SQLite `RunStore` (CRUD: runs, params, metrics)
+- [ ] M1.4 SQLite `ArtifactStore` — deferred to M3
+- [ ] M1.5 SQLite `ModelRegistry` — deferred to M5
+- [x] M1.6 Store unit tests (in-memory + tempfile)
+
+`tags` are stored on the run as inline EDN (no separate table). A
+`log-tags` API for incremental updates is deferred until needed.
 
 ## M2 — Core API
 
-- M2.1 `chachaml.env` capture (git, jvm, os, clojure)
-- M2.2 `*store*` / `*run*` dynamic vars + default-store delay
-- M2.3 `start-run!` / `end-run!` / `with-run`
-- M2.4 `log-params` / `log-metrics` / `log-tags`
-- M2.5 Exception → failed run
-- M2.6 Acceptance test: full happy-path REPL session
+- [x] M2.1 `chachaml.env` capture (git, jvm, os, clojure)
+- [x] M2.2 `*store*` / `*run*` dynamic vars + default-store delay
+- [x] M2.3 `start-run!` / `end-run!` / `with-run`
+- [x] M2.4 `log-params` / `log-metrics` / `log-metric`
+- [x] M2.5 Exception → failed run
+- [x] M2.6 Acceptance test: full REPL-session integration test
 
 ## M3 — Artifacts
 

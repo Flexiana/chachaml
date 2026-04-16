@@ -8,8 +8,71 @@
     full API namespaces.
   - We can later opt into runtime instrumentation in dev/test.
 
-  Each public fn in `chachaml.core`, `chachaml.registry`, and
-  `chachaml.tracking` is expected to register its input/output schemas
-  here as registry entries.
+  Schemas are added incrementally as the API lands across M2-M6."
+  (:require [malli.core :as m]))
 
-  Schemas are added incrementally as the API lands across M2-M6.")
+(def Status
+  "Run status. `:running` until ended; then `:completed` or `:failed`."
+  [:enum :running :completed :failed])
+
+(def MetricKey
+  "A metric or param key — keyword or non-blank string."
+  [:or :keyword [:and :string [:fn #(seq %)]]])
+
+(def Run
+  "Public run map shape."
+  [:map
+   [:id            :string]
+   [:experiment    {:optional true} :string]
+   [:name          {:optional true} [:maybe :string]]
+   [:status        Status]
+   [:start-time    :int]
+   [:end-time      {:optional true} [:maybe :int]]
+   [:error         {:optional true} [:maybe :string]]
+   [:tags          {:optional true} [:maybe [:map-of :any :any]]]
+   [:env           {:optional true} [:maybe :map]]
+   [:parent-run-id {:optional true} [:maybe :string]]])
+
+(def StartRunOpts
+  "Options accepted by `start-run!` and `with-run`."
+  [:map
+   [:experiment {:optional true} :string]
+   [:name       {:optional true} [:maybe :string]]
+   [:tags       {:optional true} [:maybe :map]]
+   [:parent-run-id {:optional true} [:maybe :string]]])
+
+(def Params
+  "Params map: any keyword/string key, any EDN-serializable value."
+  [:map-of MetricKey :any])
+
+(def Metrics
+  "Metrics map: any keyword/string key, numeric value."
+  [:map-of MetricKey number?])
+
+(def MetricRow
+  "A single metric measurement as returned from the store."
+  [:map
+   [:key       :keyword]
+   [:value     number?]
+   [:step      :int]
+   [:timestamp :int]])
+
+(def QueryFilters
+  "Filters accepted by `(runs filters)`. Unknown keys are ignored."
+  [:map
+   [:experiment    {:optional true} :string]
+   [:status        {:optional true} Status]
+   [:name          {:optional true} :string]
+   [:parent-run-id {:optional true} :string]
+   [:limit         {:optional true} pos-int?]])
+
+(defn validate
+  "Throw if `value` does not conform to `schema`. Returns `value` on
+  success so it can be used inline."
+  [schema value]
+  (if (m/validate schema value)
+    value
+    (throw (ex-info "chachaml schema violation"
+                    {:schema   schema
+                     :value    value
+                     :explain  (m/explain schema value)}))))
