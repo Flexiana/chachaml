@@ -6,8 +6,7 @@ tool and how tightly you want the two repos coupled.
 
 ## What's available right now
 
-`master` covers M1 + M2 + M3 + M4 + M5 — a complete minimal MLOps
-loop:
+`master` covers M1 through M6 — the complete v0.1 MLOps loop:
 
 - Run lifecycle: `with-run`, `start-run!`, `end-run!`
 - Logging: `log-params`, `log-param`, `log-metrics`, `log-metric`
@@ -16,13 +15,12 @@ loop:
   wraps the body in `with-run` automatically
 - Model registry (`chachaml.registry`): `register-model`, `models`,
   `model`, `model-versions`, `promote!`, `load-model`
+- REPL helpers (`chachaml.repl`): `runs-table`, `inspect`,
+  `compare-runs`, `print-comparison`
 - Querying: `runs`, `run`, `last-run`
 - Store binding: `use-store!`, `with-store`
 - Default SQLite store at `./chachaml.db` plus artifact directory at
   `./chachaml-artifacts/` (both auto-created)
-
-REPL convenience helpers (M6 — `compare-runs`, pretty-printers) are
-the only remaining v0.1 items.
 
 ## Option 1 — `:local/root` in `deps.edn` (recommended)
 
@@ -58,6 +56,25 @@ Then from a REPL:
 
 (reg/promote! "demo-classifier" 1 :production)
 (reg/load-model "demo-classifier")  ;; => latest production
+```
+
+### REPL helpers
+
+```clojure
+(require '[chachaml.repl :as repl])
+
+(repl/runs-table)
+;; ID          EXPERIMENT              NAME              STATUS      STARTED               DURATION
+;; abc12345    linear-regression       synthetic         completed   2026-04-16 21:30:15   12.4s
+
+(repl/inspect (:id (ml/last-run)))     ; full run summary
+(repl/inspect "demo-classifier")        ; model summary by name
+
+(repl/compare-runs (mapv :id (ml/runs)))
+;; => {:runs [...] :params {...} :metrics {...}}
+;;   each section split into :same / :differ / :partial
+
+(repl/print-comparison (repl/compare-runs ["id1" "id2"]))
 ```
 
 ### `deftracked`

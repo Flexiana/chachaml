@@ -79,10 +79,10 @@ explicitly inside the body.
 
 ## M6 — REPL Ergonomics
 
-- M6.1 `last-run`, `runs`, `inspect`
-- M6.2 `compare-runs` (param/metric diff)
-- M6.3 `tap>` on run completion
-- M6.4 Pretty-printers for run/model maps
+- [x] M6.1 `last-run`, `runs` (M2) + `inspect` (M6)
+- [x] M6.2 `compare-runs` + `print-comparison`
+- [x] M6.3 `tap>` on run completion (landed in M2 `end-run!`)
+- [x] M6.4 `runs-table`, `inspect-run/-model/-version` pretty-printers
 
 ## Deferred (post-v0.1)
 

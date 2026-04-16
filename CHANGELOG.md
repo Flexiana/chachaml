@@ -87,3 +87,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - Both ML examples now register their trained model as a
     `:staging` version of `linear-regression-baseline` /
     `kmeans-baseline`. Tests round-trip through the registry too.
+- M6 REPL helpers in `chachaml.repl`:
+  - `runs-table` — compact one-row-per-run table of recent runs
+  - `inspect` — polymorphic pretty-printer for runs (by id or map),
+    models (by name or map), and model versions
+  - `compare-runs` — diff params + latest metric values across N
+    runs, returns `{:runs … :params {…} :metrics {…}}` with `:same`,
+    `:differ`, `:partial` partitions
+  - `print-comparison` — render the `compare-runs` map for humans
+  - 10 tests covering empty store, multi-run diff, partial-key
+    detection, version inspection, model fallback by string id
