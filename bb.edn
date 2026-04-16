@@ -1,0 +1,31 @@
+{:tasks
+ {:requires ([babashka.fs :as fs])
+
+  test       {:doc  "Run tests via kaocha"
+              :task (clojure "-M:test")}
+
+  test-watch {:doc  "Run tests in watch mode"
+              :task (clojure "-M:test --watch --fail-fast")}
+
+  lint       {:doc  "Lint with clj-kondo (warning-level fail)"
+              :task (clojure "-M:lint")}
+
+  fmt        {:doc  "Auto-format with cljfmt"
+              :task (clojure "-M:fmt")}
+
+  fmt-check  {:doc  "Check formatting (CI-friendly)"
+              :task (clojure "-M:fmt-check")}
+
+  coverage   {:doc  "Run tests with cloverage; fails under threshold"
+              :task (clojure "-M:coverage")}
+
+  lein-test  {:doc  "Run tests under Leiningen (proves dual build)"
+              :task (shell "lein test")}
+
+  ci         {:doc     "Run all CI checks locally"
+              :depends [lint fmt-check test lein-test coverage]}
+
+  clean      {:doc  "Remove build outputs and local store"
+              :task (do (fs/delete-tree "target")
+                        (fs/delete-if-exists "chachaml.db")
+                        (fs/delete-tree "chachaml-artifacts"))}}}

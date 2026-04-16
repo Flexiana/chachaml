@@ -1,0 +1,10 @@
+#kaocha/v1
+{:tests [{:id          :unit
+          :test-paths  ["test"]
+          :ns-patterns [".*-test$"]}]
+ ;; An :integration suite will be added in M1, when storage tests
+ ;; tagged with ^:integration require a real tempfile SQLite.
+ :plugins [:kaocha.plugin/randomize
+           :kaocha.plugin/profiling]
+ :reporter kaocha.report/documentation
+ :fail-fast? false}

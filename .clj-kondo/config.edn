@@ -1,0 +1,28 @@
+;; clj-kondo config for chachaml.
+;;
+;; Goal: catch real defects and enforce conventions documented in
+;; CONTRIBUTING.md. CI runs with --fail-level warning, so any rule below
+;; that's set to :warning or :error will block merges.
+{:linters
+ {:unused-namespace        {:level :error}
+  :unused-referred-var     {:level :error}
+  :unused-binding          {:level :warning
+                            :exclude-destructured-keys-in-fn-args true}
+  :unused-private-var      {:level :error}
+  :missing-docstring       {:level :warning}
+  :unresolved-symbol       {:level :error}
+  :unresolved-namespace    {:level :error}
+  :unresolved-var          {:level :error}
+  :type-mismatch           {:level :error}
+  :redefined-var           {:level :error}
+  :inline-def              {:level :error}
+  :duplicate-require       {:level :error}
+  :refer-all               {:level :error}
+  :shadowed-var            {:level :warning}
+  :missing-test-assertion  {:level :error}
+  :unused-import           {:level :error}
+  :private-call            {:level :error}}
+
+ :output {:format                     :text
+          :show-rule-name-in-message? true
+          :include-files              ["^src" "^test"]}}

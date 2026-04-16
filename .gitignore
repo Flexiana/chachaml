@@ -1,0 +1,38 @@
+# Build artifacts
+/target/
+/classes/
+/checkouts/
+*.jar
+*.class
+pom.xml
+pom.xml.asc
+
+# tools.deps / Leiningen
+.cpcache/
+.lein-deps-sum
+.lein-failures
+.lein-plugins/
+.lein-repl-history
+.nrepl-port
+.nrepl-history
+
+# Editor / OS
+.idea/
+*.iml
+.vscode/
+.calva/
+.lsp/.cache/
+.clj-kondo/.cache/
+.DS_Store
+*.swp
+*~
+
+# Local chachaml store (project-local default)
+/chachaml.db
+/chachaml.db-journal
+/chachaml.db-shm
+/chachaml.db-wal
+/chachaml-artifacts/
+
+# Coverage reports
+/target/coverage/

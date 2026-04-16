@@ -1,0 +1,113 @@
+# chachaml — Backlog
+
+## M0 — Project skeleton + quality foundation
+
+Full quality stack must be wired before feature work begins. See
+`CONTRIBUTING.md` for the contributor-facing summary.
+
+- M0.1  `deps.edn`, `project.clj`, `bb.edn`, `.gitignore`
+- M0.2  `.clj-kondo/config.edn` (warning-level fail in CI)
+- M0.3  `cljfmt.edn`
+- M0.4  `tests.edn` (kaocha)
+- M0.5  `build.clj` (tools.build skeleton)
+- M0.6  Namespace skeletons under `src/chachaml/` per layering in
+  `CLAUDE.md`
+- M0.7  Load test: `test/chachaml/loads_test.clj`
+- M0.8  GitHub Actions `.github/workflows/ci.yml` — 4-job matrix
+  (`{deps, lein} × JDK {17, 21}`) plus lint + format + coverage gate
+- M0.9  `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE` (MIT),
+  `.github/PULL_REQUEST_TEMPLATE.md`, issue templates
+- M0.10 Initial ADRs `0001`–`0004`
+
+**Done when:**
+
+- All 4 CI jobs green on a no-op PR
+- `bb test`, `bb lint`, `bb fmt-check`, `bb coverage` all run locally
+- `clj-kondo --lint src test --fail-level warning` reports zero issues
+- `clojure -M:fmt-check` reports no drift
+
+## M1 — Storage Foundation
+
+- M1.1 Store protocols (`RunStore`, `ArtifactStore`, `ModelRegistry`,
+  `Lifecycle`)
+- M1.2 SQLite schema + idempotent migrations
+- M1.3 SQLite `RunStore` (CRUD: runs, params, metrics, tags)
+- M1.4 SQLite `ArtifactStore` (filesystem-backed, hash + size)
+- M1.5 SQLite `ModelRegistry`
+- M1.6 Store unit tests against in-memory SQLite
+
+## M2 — Core API
+
+- M2.1 `chachaml.env` capture (git, jvm, os, clojure)
+- M2.2 `*store*` / `*run*` dynamic vars + default-store delay
+- M2.3 `start-run!` / `end-run!` / `with-run`
+- M2.4 `log-params` / `log-metrics` / `log-tags`
+- M2.5 Exception → failed run
+- M2.6 Acceptance test: full happy-path REPL session
+
+## M3 — Artifacts
+
+- M3.1 Serialization multimethod: `:bytes` / `:file` / `:edn` / `:nippy`
+  (default)
+- M3.2 `log-artifact` / `log-file`
+- M3.3 `load-artifact` round-trip
+- M3.4 Hash + size captured
+
+## M4 — Tracking Macro
+
+- M4.1 `deftracked` (args → params, captures return, errors → fail)
+- M4.2 Nested-run behavior when called inside a `with-run`
+- M4.3 Tests
+
+## M5 — Model Registry
+
+- M5.1 `register-model` (creates model if missing, creates version from
+  current run + named artifact)
+- M5.2 `promote!` with stage transitions (auto-archive previous
+  `:production`)
+- M5.3 `load-model` with `:version` / `:stage` selectors
+- M5.4 Tests, including stage exclusivity
+
+## M6 — REPL Ergonomics
+
+- M6.1 `last-run`, `runs`, `inspect`
+- M6.2 `compare-runs` (param/metric diff)
+- M6.3 `tap>` on run completion
+- M6.4 Pretty-printers for run/model maps
+
+## Deferred (post-v0.1)
+
+- UI server (Ring + HTMX + Vega-Lite)
+- libpython-clj2 wrappers (sklearn / xgboost / torch)
+- MCP server
+- Pipelines / DAG
+- Postgres / S3 backends
+- Drift detection, alerts
+- Skills, OpenAI-compatible endpoint
+
+## Acceptance criteria per milestone
+
+Every milestone after M0, in addition to its specific goals below, must
+also clear the standing **quality bar** (from `CONTRIBUTING.md`):
+
+- Public vars added have docstrings
+- Public API additions have Malli schemas in `chachaml.schema`
+- New behavior has unit tests; new invariants have property-based tests
+- CI stays green; coverage does not regress
+- `CHANGELOG.md` updated under `## [Unreleased]`
+
+| Milestone | Done when                                                          |
+| --------- | ------------------------------------------------------------------ |
+| M0        | All 4 CI jobs green; full quality stack wired                      |
+| M1        | All store protocol methods exercised by tests (incl. tempfile      |
+|           | SQLite + a concurrency test for metric writes)                     |
+| M2        | A REPL session can start a run, log params/metrics, end cleanly;   |
+|           | nested `with-run` and exception → failed run both tested           |
+| M3        | Artifacts round-trip across `:bytes`/`:file`/`:edn`/`:nippy`       |
+|           | (property-based)                                                   |
+| M4        | `deftracked` fn auto-creates run; nests under existing run;        |
+|           | macro-expansion tests in place                                     |
+| M5        | Promote latest version of a model and load by `:stage :production`;|
+|           | production-stage exclusivity property-tested                       |
+| M6        | `(ml/last-run)`, `(ml/compare-runs …)` work without ceremony;      |
+|           | tested without explicit `use-store!` (default-store path)          |
