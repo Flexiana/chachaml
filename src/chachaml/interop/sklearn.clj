@@ -37,6 +37,12 @@
                            ":python alias to use sklearn interop")
                       {:type ::missing-libpython :symbol sym}))))
 
+(defn- core-fn
+  "Resolve a chachaml.core function by keyword name at runtime.
+  Avoids compile-time dependency on chachaml.core from this ns."
+  [k]
+  (requiring-resolve (symbol "chachaml.core" (name k))))
+
 (defn- py-call-attr
   "Call a method on a Python object: `(py-call-attr model \"fit\" X y)`."
   [obj method & args]
@@ -91,12 +97,9 @@
   (let [start   (System/currentTimeMillis)
         fitted  ((bridge-fn :fit) model X y)
         elapsed (- (System/currentTimeMillis) start)]
-    (require 'chachaml.core)
-    (let [log-metric (resolve 'chachaml.core/log-metric)
-          log-params (resolve 'chachaml.core/log-params)]
-      (log-metric :fit-time-ms elapsed)
-      (when log-params?
-        (log-params (extract-params fitted))))
+    ((core-fn :log-metric) :fit-time-ms elapsed)
+    (when log-params?
+      ((core-fn :log-params) (extract-params fitted)))
     fitted))
 
 (defn tracked-predict
@@ -107,8 +110,7 @@
   (let [start  (System/currentTimeMillis)
         preds  ((bridge-fn :predict) model X)
         elapsed (- (System/currentTimeMillis) start)]
-    (require 'chachaml.core)
-    ((resolve 'chachaml.core/log-metric) :predict-time-ms elapsed)
+    ((core-fn :log-metric) :predict-time-ms elapsed)
     preds))
 
 (defn evaluate!
@@ -129,8 +131,7 @@
                                    :accuracy score}
                   :regression     {:score score
                                    :r2    score})]
-    (require 'chachaml.core)
-    ((resolve 'chachaml.core/log-metrics) metrics)
+    ((core-fn :log-metrics) metrics)
     metrics))
 
 (defn train-and-evaluate!
@@ -156,12 +157,9 @@
         preds   (tracked-predict fitted X-test)
         metrics (evaluate! fitted X-test y-test
                            :task task :y-pred preds)]
-    (require 'chachaml.core)
-    (let [log-artifact (resolve 'chachaml.core/log-artifact)]
-      (log-artifact artifact-name fitted))
+    ((core-fn :log-artifact) artifact-name fitted)
     (when register-as
-      (require 'chachaml.registry)
-      ((resolve 'chachaml.registry/register-model)
+      ((requiring-resolve 'chachaml.registry/register-model)
        register-as {:artifact artifact-name :stage stage}))
     {:model       fitted
      :metrics     metrics

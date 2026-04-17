@@ -8,39 +8,10 @@
   and return nil (or, for `compare-runs`, a plain map you can also
   print or feed to `tap>`)."
   (:require [chachaml.core :as ml]
+            [chachaml.format :as fmt]
             [chachaml.registry :as reg]
             [clojure.set :as set]
-            [clojure.string :as str])
-  (:import [java.time Duration Instant ZoneId]
-           [java.time.format DateTimeFormatter]))
-
-;; --- Time formatting -------------------------------------------------
-
-(def ^:private ts-formatter
-  (.withZone (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss")
-             (ZoneId/systemDefault)))
-
-(defn- fmt-instant [^long ms]
-  (.format ts-formatter (Instant/ofEpochMilli ms)))
-
-(defn- fmt-duration [^long start ^long end]
-  (let [d  (Duration/ofMillis (max 0 (- end start)))
-        ms (.toMillis d)
-        s  (/ ms 1000.0)]
-    (cond
-      (< ms 1000)    (format "%dms" ms)
-      (< s 60)       (format "%.2fs" s)
-      :else          (format "%dm %.1fs" (long (/ s 60)) (rem s 60)))))
-
-(defn- short-id [id]
-  (when id (subs (str id) 0 (min 8 (count (str id))))))
-
-;; --- Tabular runs listing -------------------------------------------
-
-(defn- pad
-  "Right-pad `s` to width `n` with spaces. Does not truncate."
-  [s n]
-  (format (str "%-" n "s") (str s)))
+            [clojure.string :as str]))
 
 (defn runs-table
   "Print a one-row-per-run summary of recent runs. Accepts the same
@@ -52,22 +23,22 @@
        (println "(no runs)")
        (do
          (println (str/join "  "
-                            [(pad "ID"         10)
-                             (pad "EXPERIMENT" 22)
-                             (pad "NAME"       16)
-                             (pad "STATUS"     10)
-                             (pad "STARTED"    20)
+                            [(fmt/pad "ID"         10)
+                             (fmt/pad "EXPERIMENT" 22)
+                             (fmt/pad "NAME"       16)
+                             (fmt/pad "STATUS"     10)
+                             (fmt/pad "STARTED"    20)
                              "DURATION"]))
          (doseq [{:keys [id experiment status start-time end-time]
                   run-name :name} rs]
            (println (str/join "  "
-                              [(pad (or (short-id id) "")    10)
-                               (pad (or experiment "")       22)
-                               (pad (or run-name "")         16)
-                               (pad (str status)             10)
-                               (pad (fmt-instant start-time) 20)
+                              [(fmt/pad (or (fmt/short-id id) "")    10)
+                               (fmt/pad (or experiment "")       22)
+                               (fmt/pad (or run-name "")         16)
+                               (fmt/pad (str status)             10)
+                               (fmt/pad (fmt/fmt-instant start-time) 20)
                                (if end-time
-                                 (fmt-duration start-time end-time)
+                                 (fmt/fmt-duration start-time end-time)
                                  "—")])))))
      nil)))
 
@@ -84,22 +55,15 @@
                   :first (:value (first sorted))
                   :last  (:value (last sorted))})))))
 
-(defn- size-str [^long n]
-  (cond
-    (< n 1024)             (str n " B")
-    (< n (* 1024 1024))    (format "%.1f KiB" (/ n 1024.0))
-    (< n (* 1024 1024 1024)) (format "%.2f MiB" (/ n 1024.0 1024.0))
-    :else                    (format "%.2f GiB" (/ n 1024.0 1024.0 1024.0))))
-
 (defn- inspect-run* [run]
   (println (str "== Run " (:id run) " =="))
   (println (format "Experiment:  %s" (:experiment run)))
   (when (:name run)          (println (format "Name:        %s" (:name run))))
   (println (format "Status:      %s" (:status run)))
-  (println (format "Started:     %s" (fmt-instant (:start-time run))))
+  (println (format "Started:     %s" (fmt/fmt-instant (:start-time run))))
   (when (:end-time run)
     (println (format "Duration:    %s"
-                     (fmt-duration (:start-time run) (:end-time run)))))
+                     (fmt/fmt-duration (:start-time run) (:end-time run)))))
   (when (:error run)         (println (format "Error:       %s" (:error run))))
   (when (seq (:tags run))
     (println (format "Tags:        %s" (pr-str (:tags run)))))
@@ -112,16 +76,16 @@
     (println)
     (println (format "Params (%d):" (count params)))
     (doseq [[k v] (sort-by (comp str key) params)]
-      (println (format "  %s  %s" (pad (str k) 16) (pr-str v)))))
+      (println (format "  %s  %s" (fmt/pad (str k) 16) (pr-str v)))))
   (let [summary (summarize-metrics (:metrics run))]
     (println)
     (println (format "Metrics (%d keys, %d total points):"
                      (count summary) (reduce + (map :count summary))))
     (doseq [{k :key n :count v0 :first vN :last} summary]
       (if (= 1 n)
-        (println (format "  %s  %s" (pad (str k) 16) vN))
+        (println (format "  %s  %s" (fmt/pad (str k) 16) vN))
         (println (format "  %s  %d points, %s → %s"
-                         (pad (str k) 16) n v0 vN)))))
+                         (fmt/pad (str k) 16) n v0 vN)))))
   (let [arts (or (:artifacts run) [])]
     (when (seq arts)
       (println)
@@ -129,9 +93,9 @@
       (doseq [{art-name :name :keys [size content-type]
                digest :hash} arts]
         (println (format "  %s  %s  %s  sha=%s"
-                         (pad art-name 16)
-                         (pad (size-str (or size 0)) 10)
-                         (pad (or content-type "") 26)
+                         (fmt/pad art-name 16)
+                         (fmt/pad (fmt/size-str (or size 0)) 10)
+                         (fmt/pad (or content-type "") 26)
                          (subs (or digest "")
                                0 (min 8 (count (or digest "")))))))))
   nil)
@@ -141,14 +105,14 @@
     (println (str "== Model: " (:name model) " =="))
     (when (:description model)
       (println (format "Description: %s" (:description model))))
-    (println (format "Created:     %s" (fmt-instant (:created-at model))))
+    (println (format "Created:     %s" (fmt/fmt-instant (:created-at model))))
     (println (format "Versions (%d):" (count versions)))
     (doseq [{:keys [version stage run-id artifact-id description]} versions]
       (println (format "  v%d  %s  run=%s  artifact=%s%s"
                        version
-                       (pad (str stage) 12)
-                       (short-id run-id)
-                       (short-id artifact-id)
+                       (fmt/pad (str stage) 12)
+                       (fmt/short-id run-id)
+                       (fmt/short-id artifact-id)
                        (if description (str "  // " description) ""))))
     nil))
 
@@ -158,7 +122,7 @@
   (println (format "Stage:       %s" (:stage version)))
   (println (format "Run id:      %s" (:run-id version)))
   (println (format "Artifact id: %s" (:artifact-id version)))
-  (println (format "Created:     %s" (fmt-instant (:created-at version))))
+  (println (format "Created:     %s" (fmt/fmt-instant (:created-at version))))
   (when (:description version)
     (println (format "Description: %s" (:description version))))
   nil)
@@ -197,13 +161,6 @@
 
 ;; --- Comparing runs --------------------------------------------------
 
-(defn- last-metric-by-key [metrics]
-  (->> metrics
-       (group-by :key)
-       (reduce-kv (fn [acc k vs]
-                    (assoc acc k (:value (last (sort-by :step vs)))))
-                  {})))
-
 (defn- diff-maps
   "Categorise keys across `maps` into `:same`, `:differ`, `:partial`."
   [maps]
@@ -233,7 +190,7 @@
   (let [run-ids (vec run-ids)
         runs    (mapv ml/run run-ids)
         params  (mapv :params runs)
-        metrics (mapv (comp last-metric-by-key :metrics) runs)]
+        metrics (mapv (comp fmt/metric-summary :metrics) runs)]
     {:runs    run-ids
      :params  (diff-maps params)
      :metrics (diff-maps metrics)}))
@@ -250,11 +207,11 @@
     (when (seq (:differ section))
       (println "  differ:")
       (doseq [[k vs] (sort-by (comp str key) (:differ section))]
-        (println (format "    %s  %s" (pad (str k) 18) (pr-str vs)))))
+        (println (format "    %s  %s" (fmt/pad (str k) 18) (pr-str vs)))))
     (when (seq (:partial section))
       (println "  partial (missing in some runs):")
       (doseq [[k vs] (sort-by (comp str key) (:partial section))]
-        (println (format "    %s  %s" (pad (str k) 18) (pr-str vs)))))
+        (println (format "    %s  %s" (fmt/pad (str k) 18) (pr-str vs)))))
     (when (seq (:same section))
       (println (format "  identical: %s"
                        (str/join ", " (sort (map (comp str key) (:same section))))))))

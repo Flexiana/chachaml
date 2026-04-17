@@ -4,25 +4,15 @@
   Each public function returns a hiccup data structure (or a full HTML
   string via `layout/page`) for one screen. Views are pure functions of
   their data arguments — no side effects, no store access."
-  (:require [chachaml.ui.charts :as charts]
+  (:require [chachaml.format :as fmt]
+            [chachaml.ui.charts :as charts]
             [chachaml.ui.layout :as layout]))
 
-;; --- Helpers ---------------------------------------------------------
+;; --- View-specific helpers -------------------------------------------
 
-(defn- fmt-ts [ms]
-  (when ms
-    (str (java.time.LocalDateTime/ofInstant
-          (java.time.Instant/ofEpochMilli (long ms))
-          (java.time.ZoneId/systemDefault)))))
-
-(defn- fmt-duration [start end]
-  (when (and start end)
-    (let [s (/ (- end start) 1000.0)]
-      (cond (< s 60)    (format "%.1fs" s)
-            (< s 3600)  (format "%dm %ds" (long (/ s 60)) (long (rem s 60)))
-            :else       (format "%dh %dm" (long (/ s 3600)) (long (rem (/ s 60) 60)))))))
-
-(defn- status-badge [status]
+(defn- status-badge
+  "Render a colored status pill."
+  [status]
   (let [colors (case status
                  :completed "bg-green-100 text-green-800"
                  :failed    "bg-red-100 text-red-800"
@@ -31,7 +21,9 @@
     [:span {:class (str "px-2 py-0.5 rounded text-xs font-medium " colors)}
      (name status)]))
 
-(defn- stage-badge [stage]
+(defn- stage-badge
+  "Render a colored stage pill."
+  [stage]
   (let [colors (case stage
                  :production "bg-green-100 text-green-800"
                  :staging    "bg-blue-100 text-blue-800"
@@ -39,16 +31,6 @@
                  "bg-gray-100 text-gray-600")]
     [:span {:class (str "px-2 py-0.5 rounded text-xs font-medium " colors)}
      (name stage)]))
-
-(defn- short-id [id]
-  (when id (subs (str id) 0 (min 8 (count (str id))))))
-
-(defn- size-str [n]
-  (cond
-    (nil? n) "—"
-    (< n 1024) (str n " B")
-    (< n (* 1024 1024)) (format "%.1f KiB" (/ n 1024.0))
-    :else (format "%.2f MiB" (/ n 1024.0 1024.0))))
 
 ;; --- Runs dashboard --------------------------------------------------
 
@@ -104,13 +86,13 @@
                        [:td {:class "p-2"}
                         [:a {:href (str "/runs/" id)
                              :class "text-indigo-600 hover:underline font-mono text-xs"}
-                         (short-id id)]]
+                         (fmt/short-id id)]]
                        [:td {:class "p-2"} experiment]
                        [:td {:class "p-2"} (or run-name "—")]
                        [:td {:class "p-2"} (status-badge status)]
-                       [:td {:class "p-2 text-xs text-gray-500"} (fmt-ts start-time)]
+                       [:td {:class "p-2 text-xs text-gray-500"} (fmt/fmt-instant start-time)]
                        [:td {:class "p-2 text-xs text-gray-500"}
-                        (or (fmt-duration start-time end-time) "—")]]))]]]))
+                        (or (fmt/fmt-duration start-time end-time) "—")]]))]]]))
 
 ;; --- Run detail ------------------------------------------------------
 
@@ -123,11 +105,11 @@
                            (group-by :key metrics))
         timeseries (filter #(> (count (second %)) 1)
                            (group-by :key metrics))]
-    (layout/page (str "Run " (short-id id))
+    (layout/page (str "Run " (fmt/short-id id))
       ;; Header
                  [:div {:class "mb-6"}
                   [:h1 {:class "text-2xl font-bold mb-2"}
-                   (str "Run " (short-id id))
+                   (str "Run " (fmt/short-id id))
                    " " (status-badge status)]
                   [:dl {:class "grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mt-2"}
                    [:div [:dt {:class "text-gray-500"} "Experiment"]
@@ -136,10 +118,10 @@
                      [:div [:dt {:class "text-gray-500"} "Name"]
                       [:dd {:class "font-medium"} run-name]])
                    [:div [:dt {:class "text-gray-500"} "Started"]
-                    [:dd (fmt-ts start-time)]]
+                    [:dd (fmt/fmt-instant start-time)]]
                    (when end-time
                      [:div [:dt {:class "text-gray-500"} "Duration"]
-                      [:dd (fmt-duration start-time end-time)]])
+                      [:dd (fmt/fmt-duration start-time end-time)]])
                    (when error
                      [:div {:class "col-span-full"}
                       [:dt {:class "text-red-600"} "Error"]
@@ -207,7 +189,7 @@
                              digest :hash} artifacts]
                         [:tr {:class "border-b"}
                          [:td {:class "p-2 font-mono text-xs"} art-name]
-                         [:td {:class "p-2"} (size-str size)]
+                         [:td {:class "p-2"} (if size (fmt/size-str size) "—")]
                          [:td {:class "p-2 text-xs text-gray-500"} (or content-type "—")]
                          [:td {:class "p-2 font-mono text-xs text-gray-400"}
                           (when digest (subs digest 0 (min 12 (count digest))))]
@@ -243,7 +225,7 @@
                   (for [id run-ids]
                     [:a {:href (str "/runs/" id)
                          :class "bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-mono text-xs"}
-                     (short-id id)])]
+                     (fmt/short-id id)])]
 
       ;; Params diff
                  [:div {:class "mb-6"}
@@ -253,7 +235,7 @@
                     [:tr {:class "border-b bg-gray-100"}
                      [:th {:class "p-2 text-left"} "Key"]
                      (for [id run-ids]
-                       [:th {:class "p-2 text-left font-mono text-xs"} (short-id id)])
+                       [:th {:class "p-2 text-left font-mono text-xs"} (fmt/short-id id)])
                      [:th {:class "p-2 text-left"} ""]]]
                    [:tbody
                     (for [k (sort (set (concat (keys (:same params))
@@ -315,7 +297,7 @@
                         model-name]]
                       [:td {:class "p-2"} (get version-counts model-name 0)]
                       [:td {:class "p-2 text-gray-500 text-xs"} (or description "—")]
-                      [:td {:class "p-2 text-xs text-gray-500"} (fmt-ts created-at)]])]])))
+                      [:td {:class "p-2 text-xs text-gray-500"} (fmt/fmt-instant created-at)]])]])))
 
 ;; --- Model detail ----------------------------------------------------
 
@@ -327,7 +309,7 @@
                 [:h1 {:class "text-2xl font-bold mb-1"} model-name]
                 (when description
                   [:p {:class "text-gray-500 mb-1"} description])
-                [:p {:class "text-xs text-gray-400"} (str "Created " (fmt-ts created-at))]]
+                [:p {:class "text-xs text-gray-400"} (str "Created " (fmt/fmt-instant created-at))]]
                [:h2 {:class "text-lg font-semibold mb-2"} "Versions"]
                [:table {:class "w-full text-sm border-collapse"}
                 [:thead [:tr {:class "border-b bg-gray-100"}
@@ -344,6 +326,6 @@
                     [:td {:class "p-2"}
                      [:a {:href (str "/runs/" run-id)
                           :class "text-indigo-600 hover:underline font-mono text-xs"}
-                      (short-id run-id)]]
+                      (fmt/short-id run-id)]]
                     [:td {:class "p-2 text-xs text-gray-500"} (or description "—")]
-                    [:td {:class "p-2 text-xs text-gray-500"} (fmt-ts created-at)]])]]))
+                    [:td {:class "p-2 text-xs text-gray-500"} (fmt/fmt-instant created-at)]])]]))

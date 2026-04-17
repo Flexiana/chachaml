@@ -22,6 +22,7 @@
   for `inspect` / `runs-table` / `compare-runs`."
   (:require [chachaml.context :as ctx]
             [chachaml.env :as env]
+            [chachaml.format :as fmt]
             [chachaml.schema :as schema]
             [chachaml.serialize :as serialize]
             [chachaml.store.protocol :as p]
@@ -377,15 +378,6 @@
 
 ;; --- Export ----------------------------------------------------------
 
-(defn- metric-summary-for-run
-  "Extract the latest value per metric key for a run."
-  [r]
-  (->> (:metrics r)
-       (group-by :key)
-       (reduce-kv (fn [acc k vs]
-                    (assoc acc k (:value (last (sort-by :step vs)))))
-                  {})))
-
 (defn export-runs
   "Export runs as a vector of flat maps (one per run) with params and
   final metrics merged in. Suitable for CSV/JSON export.
@@ -405,5 +397,5 @@
                        :duration   (when (and (:start-time r) (:end-time r))
                                      (- (:end-time r) (:start-time r)))}
                       (:params full)
-                      (metric-summary-for-run full))))
+                      (fmt/metric-summary (:metrics full)))))
            rs))))

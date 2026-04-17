@@ -221,6 +221,15 @@
                :created-at  created-at}
         description (assoc :description description)))))
 
+(defn- ->experiment-map
+  "Convert an `experiments` row to a public experiment map."
+  [row]
+  (when row
+    {:name        (:experiments/name row)
+     :description (:experiments/description row)
+     :owner       (:experiments/owner row)
+     :created-at  (:experiments/created_at row)}))
+
 (defn- ->artifact-map
   "Convert an `artifacts` row to a public artifact map."
   [row]
@@ -482,30 +491,20 @@
          owner = COALESCE(excluded.owner, experiments.owner)"
       (:name experiment) (:description experiment) (:owner experiment)
       (System/currentTimeMillis)])
-    (let [row (jdbc/execute-one!
-               datasource
-               ["SELECT * FROM experiments WHERE name = ?" (:name experiment)])]
-      {:name        (:experiments/name row)
-       :description (:experiments/description row)
-       :owner       (:experiments/owner row)
-       :created-at  (:experiments/created_at row)}))
+    (->experiment-map
+     (jdbc/execute-one!
+      datasource
+      ["SELECT * FROM experiments WHERE name = ?" (:name experiment)])))
 
   (-get-experiment [_ experiment-name]
-    (when-let [row (jdbc/execute-one!
-                    datasource
-                    ["SELECT * FROM experiments WHERE name = ?" experiment-name])]
-      {:name        (:experiments/name row)
-       :description (:experiments/description row)
-       :owner       (:experiments/owner row)
-       :created-at  (:experiments/created_at row)}))
+    (->experiment-map
+     (jdbc/execute-one!
+      datasource
+      ["SELECT * FROM experiments WHERE name = ?" experiment-name])))
 
   (-list-experiments [_]
     (->> (jdbc/execute! datasource ["SELECT * FROM experiments ORDER BY name"])
-         (mapv (fn [row]
-                 {:name        (:experiments/name row)
-                  :description (:experiments/description row)
-                  :owner       (:experiments/owner row)
-                  :created-at  (:experiments/created_at row)}))))
+         (mapv ->experiment-map)))
 
   p/ArtifactStore
   (-put-artifact! [_ run-id art-name data content-type]

@@ -5,6 +5,7 @@
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
             [chachaml.registry :as reg]
+            [chachaml.format :as fmt]
             [chachaml.repl :as repl]
             [chachaml.test-helpers :as h]
             [clojure.string :as str]
@@ -170,21 +171,18 @@
 ;; --- Private formatter coverage --------------------------------------
 
 (deftest size-str-renders-units
-  (let [size-str @#'repl/size-str]
-    (is (= "0 B" (size-str 0)))
-    (is (= "512 B" (size-str 512)))
-    (is (str/ends-with? (size-str 2048) "KiB"))
-    (is (str/ends-with? (size-str (* 5 1024 1024)) "MiB"))
-    (is (str/ends-with? (size-str (* 3 1024 1024 1024)) "GiB"))))
+  (is (= "0 B" (fmt/size-str 0)))
+  (is (= "512 B" (fmt/size-str 512)))
+  (is (str/ends-with? (fmt/size-str 2048) "KiB"))
+  (is (str/ends-with? (fmt/size-str (* 5 1024 1024)) "MiB"))
+  (is (str/ends-with? (fmt/size-str (* 3 1024 1024 1024)) "GiB")))
 
 (deftest fmt-duration-units
-  (let [fmt @#'repl/fmt-duration]
-    (is (str/ends-with? (fmt 0 500)         "ms"))
-    (is (str/ends-with? (fmt 0 5000)        "s"))
-    (is (str/includes?  (fmt 0 (* 90 1000)) "m "))))
+  (is (str/ends-with? (fmt/fmt-duration 0 500)         "ms"))
+  (is (str/ends-with? (fmt/fmt-duration 0 5000)        "s"))
+  (is (str/includes?  (fmt/fmt-duration 0 (* 90 1000)) "m ")))
 
 (deftest short-id-handles-edge-cases
-  (let [short-id @#'repl/short-id]
-    (is (nil? (short-id nil)))
-    (is (= "abc"      (short-id "abc")))
-    (is (= "abcdefgh" (short-id "abcdefghij")))))
+  (is (nil? (fmt/short-id nil)))
+  (is (= "abc"      (fmt/short-id "abc")))
+  (is (= "abcdefgh" (fmt/short-id "abcdefghij"))))
