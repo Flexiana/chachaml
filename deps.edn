@@ -8,8 +8,9 @@
 
  :aliases
  {:test       {:extra-paths ["test" "examples"]
-               :extra-deps  {lambdaisland/kaocha    {:mvn/version "1.91.1392"}
-                             org.clojure/test.check {:mvn/version "1.1.1"}}
+               :extra-deps  {lambdaisland/kaocha     {:mvn/version "1.91.1392"}
+                             org.clojure/test.check  {:mvn/version "1.1.1"}
+                             org.clojure/data.json   {:mvn/version "2.5.1"}}
                :main-opts   ["-m" "kaocha.runner"]}
 
   :dev        {:extra-paths ["dev" "test" "examples"]
@@ -28,9 +29,10 @@
                :main-opts    ["-m" "cljfmt.main" "check" "src" "test"]}
 
   :coverage   {:extra-paths ["test" "examples"]
-               :extra-deps  {cloverage/cloverage    {:mvn/version "1.2.4"}
-                             lambdaisland/kaocha    {:mvn/version "1.91.1392"}
-                             org.clojure/test.check {:mvn/version "1.1.1"}}
+               :extra-deps  {cloverage/cloverage     {:mvn/version "1.2.4"}
+                             lambdaisland/kaocha     {:mvn/version "1.91.1392"}
+                             org.clojure/test.check  {:mvn/version "1.1.1"}
+                             org.clojure/data.json   {:mvn/version "2.5.1"}}
                ;; Examples are on the test classpath but not instrumented;
                ;; coverage measures the library (`src/`) only.
                ;; cloverage CLI supports --fail-threshold (line %); form/branch
@@ -43,4 +45,7 @@
   :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
                :ns-default build}
 
-  :examples   {:extra-paths ["examples"]}}}
+  :examples   {:extra-paths ["examples"]}
+
+  :mcp        {:extra-deps  {org.clojure/data.json {:mvn/version "2.5.1"}}
+               :main-opts   ["-m" "chachaml.mcp"]}}}

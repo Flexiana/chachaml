@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- M7 MCP server (`chachaml.mcp`):
+  - JSON-RPC 2.0 over stdio; run via `clojure -M:mcp [db-path]`.
+  - 6 tools: `list_runs`, `get_run`, `compare_runs`, `list_models`,
+    `get_model`, `get_model_version`.
+  - Configurable in `.claude/mcp.json` or any MCP-compatible client.
+  - `org.clojure/data.json` added as an optional dep (`:mcp` alias
+    for runtime, test/coverage aliases for CI).
+  - 18 tests covering handshake, all tools, error paths, and a
+    ByteArrayStream integration test.
+
 ### Changed
 
 - Cleanup pass after the v0.1.0 review:

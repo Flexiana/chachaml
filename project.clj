@@ -1,4 +1,4 @@
-(defproject chachaml "0.1.0"
+(defproject chachaml "0.2.0-SNAPSHOT"
   :description "Practical, REPL-first MLOps library for Clojure."
   :url "https://github.com/jiriknesl/chachaml"
   :license {:name "MIT"
@@ -16,7 +16,9 @@
   :target-path    "target/%s"
 
   :profiles
-  {:test {:dependencies [[org.clojure/test.check "1.1.1"]]
+  {:test {:dependencies [[org.clojure/test.check "1.1.1"]
+                         [org.clojure/data.json "2.5.1"]]
           :source-paths ["examples"]}
    :dev  {:source-paths ["dev" "examples"]
-          :dependencies [[org.clojure/test.check "1.1.1"]]}})
+          :dependencies [[org.clojure/test.check "1.1.1"]
+                         [org.clojure/data.json "2.5.1"]]}})

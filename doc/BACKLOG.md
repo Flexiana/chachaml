@@ -84,11 +84,20 @@ explicitly inside the body.
 - [x] M6.3 `tap>` on run completion (landed in M2 `end-run!`)
 - [x] M6.4 `runs-table`, `inspect-run/-model/-version` pretty-printers
 
-## Deferred (post-v0.1)
+## M7 — MCP Server (v0.2)
+
+- [x] JSON-RPC 2.0 server over stdio with `initialize`, `ping`,
+  `tools/list`, `tools/call` handshake
+- [x] 6 tools: `list_runs`, `get_run`, `compare_runs`, `list_models`,
+  `get_model`, `get_model_version`
+- [x] Entry point via `:mcp` alias: `clojure -M:mcp [db-path]`
+- [x] Response keys normalised via `walk/stringify-keys`
+- [x] 18 MCP tests including ByteArrayStream integration test
+
+## Deferred (post-v0.2)
 
 - UI server (Ring + HTMX + Vega-Lite)
 - libpython-clj2 wrappers (sklearn / xgboost / torch)
-- MCP server
 - Pipelines / DAG
 - Postgres / S3 backends
 - Drift detection, alerts
