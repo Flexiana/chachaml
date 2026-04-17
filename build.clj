@@ -3,7 +3,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib       'org.clojars.jiriknesl/chachaml)
-(def version   "0.2.0")
+(def version   "0.3.0-SNAPSHOT")
 (def class-dir "target/classes")
 (def jar-file  (format "target/%s-%s.jar" (name lib) version))
 

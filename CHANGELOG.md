@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-(no changes yet)
+### Added
+
+- M9 libpython-clj2 sklearn interop (`chachaml.interop.sklearn`):
+  - `tracked-fit!` — fit a sklearn-compatible model, logging
+    training time + model hyperparameters.
+  - `tracked-predict` — predict with timing.
+  - `evaluate!` — compute + log accuracy/R² metrics.
+  - `train-and-evaluate!` — full pipeline: fit, predict, evaluate,
+    save artifact, optionally register model.
+  - `extract-params` — pull sklearn's `.get_params()`.
+  - All Python calls go through a `*bridge*` dynamic var so tests
+    run without Python (mock bridge replaces libpython-clj2).
+  - `requiring-resolve` for the Python bridge — namespace compiles
+    without libpython-clj2 on the classpath.
+  - `:python` alias in deps.edn for users with Python + sklearn.
+  - `examples/sklearn_iris.clj` — runnable with
+    `clojure -M:python:examples -m sklearn-iris`.
+  - 8 mock-based tests covering fit, predict, evaluate, the full
+    pipeline, and param extraction.
 
 ## [0.2.0] - 2026-04-17
 

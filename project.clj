@@ -1,4 +1,4 @@
-(defproject chachaml "0.2.0"
+(defproject chachaml "0.3.0-SNAPSHOT"
   :description "Practical, REPL-first MLOps library for Clojure."
   :url "https://github.com/jiriknesl/chachaml"
   :license {:name "MIT"

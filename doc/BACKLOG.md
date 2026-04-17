@@ -105,9 +105,17 @@ explicitly inside the body.
 - [x] Concurrent-write integration test
 - [x] 22 UI tests via ring-mock
 
-## Deferred (post-v0.2)
+## M9 — libpython-clj2 sklearn interop (v0.3)
 
-- libpython-clj2 wrappers (sklearn / xgboost / torch)
+- [x] `chachaml.interop.sklearn`: tracked-fit!, tracked-predict,
+  evaluate!, train-and-evaluate!, extract-params
+- [x] `*bridge*` dynamic var for testability without Python
+- [x] `requiring-resolve` for optional libpython-clj2 dep
+- [x] `:python` alias in deps.edn
+- [x] `examples/sklearn_iris.clj` (runnable with Python + sklearn)
+- [x] 8 mock-based tests
+
+## Deferred (post-v0.3)
 - Pipelines / DAG
 - Postgres / S3 backends
 - Drift detection, alerts

@@ -54,12 +54,15 @@
                              "--fail-threshold" "85"
                              "-e" "chachaml.ui.layout"
                              "-e" "chachaml.ui.views"
-                             "-e" "chachaml.ui.charts"]}
+                             "-e" "chachaml.ui.charts"
+                             "-e" "chachaml.interop.sklearn"]}
 
   :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
                :ns-default build}
 
   :examples   {:extra-paths ["examples"]}
+
+  :python     {:extra-deps  {clj-python/libpython-clj {:mvn/version "2.028"}}}
 
   :mcp        {:extra-deps  {org.clojure/data.json {:mvn/version "2.5.1"}}
                :main-opts   ["-m" "chachaml.mcp"]}
