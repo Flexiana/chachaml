@@ -210,6 +210,30 @@
         (.delete tmp)
         (#'sqlite/delete-tree! (java.io.File. (#'sqlite/default-artifact-dir tmp-path)))))))
 
+(deftest ^:integration concurrent-metric-writes
+  (testing "Two threads writing metrics to different runs simultaneously"
+    (let [tmp      (File/createTempFile "chachaml-conc-" ".db")
+          tmp-path (.getAbsolutePath tmp)]
+      (try
+        (let [store  (sqlite/open {:path tmp-path})
+              run-a  (new-run {:name "agent-a"})
+              run-b  (new-run {:name "agent-b"})
+              _      (p/-create-run! store run-a)
+              _      (p/-create-run! store run-b)
+              n      50
+              write! (fn [run-id]
+                       (dotimes [i n]
+                         (p/-log-metrics! store run-id
+                                          [{:key :loss :value (/ 1.0 (inc i)) :step i}])))]
+          (let [fa (future (write! (:id run-a)))
+                fb (future (write! (:id run-b)))]
+            @fa @fb)
+          (is (= n (count (p/-get-metrics store (:id run-a)))))
+          (is (= n (count (p/-get-metrics store (:id run-b)))))
+          (p/close! store))
+        (finally
+          (.delete tmp))))))
+
 (deftest ^:integration tempfile-backed-store-roundtrip
   (testing "Schema persists across opens; data round-trips through a real file"
     (let [tmp (File/createTempFile "chachaml-" ".db")

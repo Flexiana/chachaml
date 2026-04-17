@@ -94,9 +94,19 @@ explicitly inside the body.
 - [x] Response keys normalised via `walk/stringify-keys`
 - [x] 18 MCP tests including ByteArrayStream integration test
 
+## M8 — Web UI (v0.2)
+
+- [x] Ring + Reitit + Hiccup + HTMX + Vega-Lite + Tailwind CDN
+- [x] 5 HTML screens: runs dashboard, run detail, run comparison,
+  model registry, model version detail
+- [x] JSON API: `/api/runs`, `/api/runs/:id`, `/api/compare`,
+  `/api/models`, `/api/models/:name`, `/api/experiments`
+- [x] SQLite WAL mode for concurrent read/write access
+- [x] Concurrent-write integration test
+- [x] 22 UI tests via ring-mock
+
 ## Deferred (post-v0.2)
 
-- UI server (Ring + HTMX + Vega-Lite)
 - libpython-clj2 wrappers (sklearn / xgboost / torch)
 - Pipelines / DAG
 - Postgres / S3 backends

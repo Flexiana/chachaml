@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - 18 tests covering handshake, all tools, error paths, and a
     ByteArrayStream integration test.
 
+- SQLite WAL mode + `busy_timeout=5000` enabled on every `open` —
+  concurrent readers (UI) never block writers (training agents), and
+  simultaneous writers wait instead of failing with SQLITE_BUSY.
+  Includes a concurrent-write integration test.
+- M8 Web UI (`chachaml.ui.*`):
+  - Ring + Reitit + Hiccup + HTMX + Vega-Lite + Tailwind CDN.
+  - Start with `clojure -M:ui [db-path] [port]` (default 8080).
+  - 5 screens: runs dashboard (auto-refreshes every 10s via HTMX),
+    run detail (params, scalar metrics, time-series Vega-Lite charts,
+    artifacts), run comparison (param diff + overlaid metric charts),
+    model registry, model version detail.
+  - JSON API at `/api/{runs,runs/:id,compare,models,models/:name,
+    experiments}` — foundation for a future chat-with-data layer.
+  - 22 UI tests via `ring-mock` (HTML + JSON routes, 404s, filters).
+
 ### Changed
 
 - Cleanup pass after the v0.1.0 review:

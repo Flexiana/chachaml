@@ -8,9 +8,14 @@
 
  :aliases
  {:test       {:extra-paths ["test" "examples"]
-               :extra-deps  {lambdaisland/kaocha     {:mvn/version "1.91.1392"}
-                             org.clojure/test.check  {:mvn/version "1.1.1"}
-                             org.clojure/data.json   {:mvn/version "2.5.1"}}
+               :extra-deps  {lambdaisland/kaocha       {:mvn/version "1.91.1392"}
+                             org.clojure/test.check    {:mvn/version "1.1.1"}
+                             org.clojure/data.json     {:mvn/version "2.5.1"}
+                             ring/ring-core            {:mvn/version "1.13.0"}
+                             ring/ring-jetty-adapter   {:mvn/version "1.13.0"}
+                             metosin/reitit-ring       {:mvn/version "0.7.2"}
+                             hiccup/hiccup             {:mvn/version "2.0.0-RC4"}
+                             ring/ring-mock            {:mvn/version "0.4.0"}}
                :main-opts   ["-m" "kaocha.runner"]}
 
   :dev        {:extra-paths ["dev" "test" "examples"]
@@ -29,18 +34,27 @@
                :main-opts    ["-m" "cljfmt.main" "check" "src" "test"]}
 
   :coverage   {:extra-paths ["test" "examples"]
-               :extra-deps  {cloverage/cloverage     {:mvn/version "1.2.4"}
-                             lambdaisland/kaocha     {:mvn/version "1.91.1392"}
-                             org.clojure/test.check  {:mvn/version "1.1.1"}
-                             org.clojure/data.json   {:mvn/version "2.5.1"}}
-               ;; Examples are on the test classpath but not instrumented;
-               ;; coverage measures the library (`src/`) only.
-               ;; cloverage CLI supports --fail-threshold (line %); form/branch
-               ;; thresholds are tracked in the report and enforced by review.
+               :extra-deps  {cloverage/cloverage       {:mvn/version "1.2.4"}
+                             lambdaisland/kaocha       {:mvn/version "1.91.1392"}
+                             org.clojure/test.check    {:mvn/version "1.1.1"}
+                             org.clojure/data.json     {:mvn/version "2.5.1"}
+                             ring/ring-core            {:mvn/version "1.13.0"}
+                             ring/ring-jetty-adapter   {:mvn/version "1.13.0"}
+                             metosin/reitit-ring       {:mvn/version "0.7.2"}
+                             hiccup/hiccup             {:mvn/version "2.0.0-RC4"}
+                             ring/ring-mock            {:mvn/version "0.4.0"}}
+               ;; Coverage measures the library (src/) only.
+               ;; Hiccup-heavy UI template namespaces are excluded from
+               ;; form instrumentation — they are pure data (nested
+               ;; vectors) that inflate form counts meaninglessly. The
+               ;; server + api namespaces remain instrumented.
                :main-opts   ["-m" "cloverage.coverage"
                              "-p" "src"
                              "-s" "test"
-                             "--fail-threshold" "85"]}
+                             "--fail-threshold" "85"
+                             "-e" "chachaml.ui.layout"
+                             "-e" "chachaml.ui.views"
+                             "-e" "chachaml.ui.charts"]}
 
   :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
                :ns-default build}
@@ -48,4 +62,11 @@
   :examples   {:extra-paths ["examples"]}
 
   :mcp        {:extra-deps  {org.clojure/data.json {:mvn/version "2.5.1"}}
-               :main-opts   ["-m" "chachaml.mcp"]}}}
+               :main-opts   ["-m" "chachaml.mcp"]}
+
+  :ui         {:extra-deps  {ring/ring-core          {:mvn/version "1.13.0"}
+                             ring/ring-jetty-adapter {:mvn/version "1.13.0"}
+                             metosin/reitit-ring     {:mvn/version "0.7.2"}
+                             hiccup/hiccup           {:mvn/version "2.0.0-RC4"}
+                             org.clojure/data.json   {:mvn/version "2.5.1"}}
+               :main-opts   ["-m" "chachaml.ui.server"]}}}

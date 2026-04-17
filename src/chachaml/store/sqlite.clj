@@ -87,9 +87,15 @@
    "CREATE INDEX IF NOT EXISTS idx_versions_stage ON model_versions(model_name, stage)"])
 
 (defn- migrate!
-  "Apply (idempotent) schema statements against `connectable`. Accepts a
-  DataSource or an open Connection."
+  "Apply (idempotent) schema statements and pragmas against `connectable`.
+
+  Enables WAL (Write-Ahead Logging) mode so concurrent readers (e.g. a
+  running UI) never block writers (training agents), and sets a 5-second
+  busy timeout so simultaneous writers wait instead of failing with
+  SQLITE_BUSY."
   [connectable]
+  (jdbc/execute! connectable ["PRAGMA journal_mode=WAL"])
+  (jdbc/execute! connectable ["PRAGMA busy_timeout=5000"])
   (doseq [stmt schema-statements]
     (jdbc/execute! connectable [stmt])))
 
