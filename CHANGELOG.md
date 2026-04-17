@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Markdown notes with math**: runs and models support markdown
+  notes rendered via marked.js + KaTeX. `set-note!` stores markdown;
+  the UI renders it with LaTeX math support. `set-model-note!` added
+  to the registry for model descriptions.
+- **16 MCP tools** (was 6): `search_runs`, `best_run`, `add_tag`,
+  `set_note`, `get_tags`, `get_datasets`, `list_experiments`,
+  `create_experiment`, `export_runs`, `diff_model_versions`.
+- **7 new API endpoints**: tags CRUD, note POST, datasets GET,
+  search, model note, version diff.
+- **Showcase demonstrates v0.4**: UC01 uses `log-table` + `log-dataset!`,
+  UC08 uses `with-batched-metrics`, UC17 uses `create-experiment!`,
+  UC19 uses `add-tag!`, UC25 uses `set-note!` with markdown+math,
+  `-main` uses `best-run` + `export-runs`.
+- JS/CSS bundled locally: marked.min.js, katex.min.js,
+  auto-render.min.js, katex.min.css.
+
+### Changed
+
+- **Refactoring**: extracted `chachaml.format` namespace with shared
+  `short-id`, `size-str`, `fmt-instant`, `fmt-duration`, `pad`,
+  `metric-summary`. Eliminated 4 duplicated helper fns from
+  `chachaml.repl` and `chachaml.ui.views`. Extracted
+  `->experiment-map` in sqlite.clj (was copy-pasted 3 times).
+  Consolidated sklearn interop `require/resolve` pattern into
+  `core-fn` helper.
 - **Mutable tags + run notes**: `add-tag!`, `set-note!`, `get-tags` —
   annotate runs after they complete. Tags stored in a dedicated table
   with upsert semantics; merged with inline tags in `(run id)`.

@@ -112,7 +112,11 @@
               acc   (accuracy yte preds)]
           (ml/log-metrics {:accuracy acc :n-correct (long (* acc (count yte)))})
           (ml/log-artifact "model" {:w @w :b @b :type :logistic-regression})
-          (ml/log-artifact "confusion-matrix" (confusion-matrix yte preds [0 1]))
+          (ml/log-table "confusion-matrix"
+                       {:headers ["pred-0" "pred-1"]
+                        :rows (confusion-matrix yte preds [0 1])})
+          (ml/log-dataset! {:role "train" :n-rows (count Xtr) :n-cols 3})
+          (ml/log-dataset! {:role "test"  :n-rows (count Xte) :n-cols 3})
           (reg/register-model "binary-classifier" {:artifact "model" :stage :staging})))
       (run-id!))))
 
@@ -346,15 +350,17 @@
                       :n-features 3 :true-w true-w :true-b true-b})
       (let [w (atom (vec (repeat 3 0.0)))
             b (atom 0.0)]
-        (dotimes [epoch 200]
-          (doseq [[x yi] (map vector Xtr ytr)]
-            (let [pred (+ (dot @w x) @b)
-                  e    (- pred yi)]
-              (swap! w #(mapv (fn [wi xi] (- wi (* 0.01 (/ (* 2 e xi) (count Xtr))))) % x))
-              (swap! b - (* 0.01 (/ (* 2 e) (count Xtr))))))
-          (when (zero? (mod epoch 20))
-            (let [preds (mapv #(+ (dot @w %) @b) Xtr)]
-              (ml/log-metric :train-mse (mse ytr preds) epoch))))
+        ;; v0.4: batch metrics to reduce SQL round-trips
+        (ml/with-batched-metrics
+          (dotimes [epoch 200]
+            (doseq [[x yi] (map vector Xtr ytr)]
+              (let [pred (+ (dot @w x) @b)
+                    e    (- pred yi)]
+                (swap! w #(mapv (fn [wi xi] (- wi (* 0.01 (/ (* 2 e xi) (count Xtr))))) % x))
+                (swap! b - (* 0.01 (/ (* 2 e) (count Xtr))))))
+            (when (zero? (mod epoch 20))
+              (let [preds (mapv #(+ (dot @w %) @b) Xtr)]
+                (ml/log-metric :train-mse (mse ytr preds) epoch)))))
         (let [preds (mapv #(+ (dot @w %) @b) Xte)]
           (ml/log-metrics {:r2 (r-squared yte preds) :mae (mae yte preds)
                            :rmse (rmse yte preds) :mse (mse yte preds)})
@@ -680,6 +686,10 @@
 ;; =====================================================================
 
 (defn uc17-cross-validation []
+  ;; v0.4: create experiment with metadata
+  (ml/create-experiment! "17-cross-validation"
+                         {:description "K-fold CV with logistic regression"
+                          :owner "showcase"})
   (let [{:keys [X y]} (gen-blobs 100 2 3)
         k-folds 5
         fold-size (quot (count X) k-folds)]
@@ -795,9 +805,12 @@
                         Xte)]
         (ml/log-metric :acc-naive-bayes (accuracy yte preds)))
 
-      (ml/log-params {:algorithms ["logistic-regression" "knn" "naive-bayes"]
-                      :winner "see metrics for best"}))
-    (run-id!)))
+      (ml/log-params {:algorithms ["logistic-regression" "knn" "naive-bayes"]})
+      (run-id!)))
+  ;; v0.4: tag the most recent run with a note after completion
+  (let [rid (:id (ml/last-run))]
+    (ml/add-tag! rid :winner "check-metrics")
+    rid))
 
 ;; =====================================================================
 ;; 20. Ensemble voting — component model refs
@@ -1064,7 +1077,16 @@
         (ml/log-param :winner winner)
         (ml/log-artifact "ab-results" {:preds-a preds-a :preds-b preds-b
                                        :t-stat t-stat :p-value p-value
-                                       :winner winner}))
+                                       :winner winner})
+        ;; v0.4: markdown note with math
+        (ml/set-note! (run-id!)
+                      (str "## A/B Evaluation\n\n"
+                           "**Winner**: " winner "\n\n"
+                           "Paired t-test: $t = " (format "%.3f" t-stat)
+                           "$, $p = " (format "%.4f" p-value) "$\n\n"
+                           (if (< p-value 0.05)
+                             "Result is **statistically significant** at $\\alpha = 0.05$."
+                             "Result is **not significant** at $\\alpha = 0.05$."))))
       (run-id!))))
 
 ;; =====================================================================
@@ -1116,4 +1138,12 @@
     (println "\nRegistered models:")
     (doseq [m (reg/models)]
       (println (str "  " (:name m) " — "
-                    (count (reg/model-versions (:name m))) " version(s)")))))
+                    (count (reg/model-versions (:name m))) " version(s)")))
+    ;; v0.4: best-run + export
+    (println "\nBest run by accuracy (experiment 01):")
+    (when-let [b (ml/best-run {:experiment "01-binary-classification"
+                               :metric :accuracy})]
+      (println (str "  " (:id b) " accuracy metric logged")))
+    (println (str "\nExported " (count (ml/export-runs {:limit 5}))
+                  " runs as flat records (first 5)"))))
+
