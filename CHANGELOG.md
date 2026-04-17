@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.3.0] - 2026-04-17
+
+sklearn interop and 25 ML use case showcase.
+
 ### Added
 
 - M9 libpython-clj2 sklearn interop (`chachaml.interop.sklearn`):
