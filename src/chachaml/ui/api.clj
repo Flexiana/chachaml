@@ -146,6 +146,25 @@
                            {:name model-name :description (:note body)})
     (json-response {:ok true})))
 
+(defn chat-handler
+  "POST /api/chat — proxy a question to an LLM with chachaml tools.
+
+  JSON body: `{\"question\":\"...\",\"provider\":\"anthropic\",
+               \"api_key\":\"sk-...\",\"model\":\"claude-sonnet-4-20250514\"}`"
+  [request]
+  (try
+    (let [body    (json/read-str (slurp (:body request)) :key-fn keyword)
+          chat-fn (requiring-resolve 'chachaml.chat/ask)
+          result  (chat-fn (:question body)
+                           {:provider (keyword (:provider body))
+                            :api-key  (:api_key body)
+                            :model    (:model body)})]
+      (json-response result))
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body (json/write-str {:error (ex-message e)})})))
+
 (defn diff-versions-handler
   "GET /api/diff/:name/:v1/:v2"
   [request]

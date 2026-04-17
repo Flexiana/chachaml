@@ -115,6 +115,11 @@
                                  :op          (get params "op")
                                  :metric-value (get params "metric_value")}))}))
 
+(defn- chat-page-handler [_request]
+  {:status 200
+   :headers {"Content-Type" "text/html; charset=utf-8"}
+   :body (views/chat-page)})
+
 (def ^:private routes
   [["/" {:get {:handler (fn [_] {:status 302 :headers {"Location" "/runs"}})}}]
    ["/runs" {:get {:handler runs-handler}}]
@@ -140,7 +145,9 @@
    ["/api/datasets/:id" {:get {:handler api/get-datasets-handler}}]
    ["/api/search" {:get {:handler api/search-runs-handler}}]
    ["/api/model-note/:name" {:post {:handler api/set-model-note-handler}}]
-   ["/api/diff/:name/:v1/:v2" {:get {:handler api/diff-versions-handler}}]])
+   ["/api/diff/:name/:v1/:v2" {:get {:handler api/diff-versions-handler}}]
+   ["/api/chat" {:post {:handler api/chat-handler}}]
+   ["/chat" {:get {:handler chat-page-handler}}]])
 
 (defn app
   "Build the Ring handler (with query-params middleware). Requires

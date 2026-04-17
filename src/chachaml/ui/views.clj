@@ -473,3 +473,109 @@
                         [:td {:class "p-2 text-xs text-gray-500"}
                          (fmt/fmt-instant start-time)]])]])
                  [:p {:class "text-gray-400"} "Enter search criteria above."])))
+
+;; --- Chat page -------------------------------------------------------
+
+(defn chat-page
+  "Chat-with-data page. API key stored in localStorage (client only)."
+  []
+  (layout/page "Chat"
+               [:h1 {:class "text-2xl font-bold mb-4"} "Chat with your experiments"]
+               [:p {:class "text-gray-500 text-sm mb-4"}
+                "Ask questions about your runs, models, and metrics. "
+                "Your API key is stored in your browser only — never sent to chachaml's server."]
+
+               ;; Settings
+               [:div {:class "flex gap-2 mb-4"}
+                [:select {:id "provider" :class "border rounded px-2 py-1 text-sm"}
+                 [:option {:value "anthropic"} "Anthropic (Claude)"]
+                 [:option {:value "openai"} "OpenAI (GPT)"]]
+                [:input {:id "api-key" :type "password" :placeholder "API key"
+                         :class "border rounded px-2 py-1 text-sm flex-1"}]
+                [:input {:id "model" :type "text" :placeholder "model (optional)"
+                         :class "border rounded px-2 py-1 text-sm w-48"}]]
+
+               ;; Chat area
+               [:div {:id "chat-history"
+                      :class "bg-white border rounded p-4 mb-4 min-h-[200px] max-h-[500px] overflow-y-auto space-y-3"}
+                [:p {:class "text-gray-300 text-sm"} "No messages yet."]]
+
+               ;; Input
+               [:div {:class "flex gap-2"}
+                [:input {:id "question" :type "text"
+                         :placeholder "e.g. Which experiment has the best accuracy?"
+                         :class "border rounded px-3 py-2 flex-1"
+                         :onkeydown "if(event.key==='Enter')sendChat()"}]
+                [:button {:onclick "sendChat()"
+                          :class "bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"}
+                 "Send"]]
+
+               ;; Client-side JS
+               [:script (str "
+// Restore API key from localStorage
+const keyEl = document.getElementById('api-key');
+const provEl = document.getElementById('provider');
+const modelEl = document.getElementById('model');
+keyEl.value = localStorage.getItem('chachaml-api-key') || '';
+provEl.value = localStorage.getItem('chachaml-provider') || 'anthropic';
+modelEl.value = localStorage.getItem('chachaml-model') || '';
+
+function saveSettings() {
+  localStorage.setItem('chachaml-api-key', keyEl.value);
+  localStorage.setItem('chachaml-provider', provEl.value);
+  localStorage.setItem('chachaml-model', modelEl.value);
+}
+
+function appendMsg(role, text) {
+  const hist = document.getElementById('chat-history');
+  if (hist.querySelector('.text-gray-300')) hist.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = role === 'user'
+    ? 'bg-gray-100 rounded p-3 text-sm'
+    : 'bg-indigo-50 rounded p-3 text-sm prose prose-sm max-w-none';
+  if (role === 'assistant') {
+    div.innerHTML = marked.parse(text);
+    renderMathInElement(div, {delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}]});
+  } else {
+    div.textContent = text;
+  }
+  hist.appendChild(div);
+  hist.scrollTop = hist.scrollHeight;
+}
+
+async function sendChat() {
+  saveSettings();
+  const q = document.getElementById('question').value.trim();
+  if (!q) return;
+  document.getElementById('question').value = '';
+  appendMsg('user', q);
+  appendMsg('assistant', '⏳ Thinking...');
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        question: q,
+        provider: provEl.value,
+        api_key: keyEl.value,
+        model: modelEl.value || undefined
+      })
+    });
+    const data = await resp.json();
+    // Remove the thinking indicator
+    const hist = document.getElementById('chat-history');
+    hist.removeChild(hist.lastChild);
+    if (data.error) {
+      appendMsg('assistant', '❌ ' + data.error);
+    } else {
+      appendMsg('assistant', data.answer);
+    }
+  } catch(e) {
+    const hist = document.getElementById('chat-history');
+    hist.removeChild(hist.lastChild);
+    appendMsg('assistant', '❌ ' + e.message);
+  }
+}
+")]))

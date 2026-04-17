@@ -105,6 +105,48 @@
       created_at INTEGER NOT NULL
     )"
    "CREATE INDEX IF NOT EXISTS idx_datasets_run ON datasets(run_id)"
+   ;; Pipelines
+   "CREATE TABLE IF NOT EXISTS pipelines (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      description TEXT,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      parent_run_id TEXT,
+      created_at  INTEGER NOT NULL,
+      finished_at INTEGER
+    )"
+   "CREATE TABLE IF NOT EXISTS pipeline_steps (
+      id          TEXT PRIMARY KEY,
+      pipeline_id TEXT NOT NULL,
+      step_name   TEXT NOT NULL,
+      step_order  INTEGER NOT NULL,
+      run_id      TEXT,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      started_at  INTEGER,
+      finished_at INTEGER
+    )"
+   "CREATE INDEX IF NOT EXISTS idx_pipeline_steps_pipeline ON pipeline_steps(pipeline_id)"
+   ;; Alerts
+   "CREATE TABLE IF NOT EXISTS alerts (
+      id            TEXT PRIMARY KEY,
+      name          TEXT NOT NULL,
+      experiment    TEXT,
+      metric_key    TEXT NOT NULL,
+      op            TEXT NOT NULL,
+      threshold     REAL NOT NULL,
+      active        INTEGER NOT NULL DEFAULT 1,
+      last_checked  INTEGER,
+      last_triggered INTEGER,
+      created_at    INTEGER NOT NULL
+    )"
+   "CREATE TABLE IF NOT EXISTS alert_events (
+      id         TEXT PRIMARY KEY,
+      alert_id   TEXT NOT NULL,
+      run_id     TEXT NOT NULL,
+      metric_value REAL NOT NULL,
+      triggered_at INTEGER NOT NULL
+    )"
+   "CREATE INDEX IF NOT EXISTS idx_alert_events_alert ON alert_events(alert_id)"
    ;; Experiments metadata
    "CREATE TABLE IF NOT EXISTS experiments (
       name        TEXT PRIMARY KEY,
