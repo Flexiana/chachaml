@@ -18,12 +18,16 @@
       [:meta {:charset "utf-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
       [:title (str title " — chachaml")]
-      ;; All JS deps served locally from resources/public/js/
+      ;; All JS/CSS deps served locally from resources/public/
+      [:link {:rel "stylesheet" :href "/css/katex.min.css"}]
       [:script {:src "/js/tailwind.js"}]
       [:script {:src "/js/htmx.min.js"}]
       [:script {:src "/js/vega.min.js"}]
       [:script {:src "/js/vega-lite.min.js"}]
-      [:script {:src "/js/vega-embed.min.js"}]]
+      [:script {:src "/js/vega-embed.min.js"}]
+      [:script {:src "/js/marked.min.js"}]
+      [:script {:src "/js/katex.min.js"}]
+      [:script {:src "/js/auto-render.min.js"}]]
      [:body {:class "bg-gray-50 text-gray-900 min-h-screen"}
       [:nav {:class "bg-indigo-700 text-white px-6 py-3 flex items-center gap-6 shadow"}
        [:a {:href "/" :class "font-bold text-lg"} "chachaml"]

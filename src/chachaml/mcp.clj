@@ -74,7 +74,62 @@
                                "stage"      {:type        "string"
                                              :enum        ["none" "staging" "production" "archived"]
                                              :description "Find latest version with this stage (default: production)"}}
-                  :required   ["model_name"]}}])
+                  :required   ["model_name"]}}
+   ;; --- v0.4 tools ---
+   {:name        "search_runs"
+    :description "Find runs filtered by metric values, e.g. accuracy > 0.9."
+    :inputSchema {:type       "object"
+                  :properties {"experiment"   {:type "string"}
+                               "metric_key"   {:type "string" :description "Metric to filter on"}
+                               "op"           {:type "string" :enum ["> >= < <= ="] :description "Comparison operator"}
+                               "metric_value" {:type "number" :description "Threshold value"}
+                               "limit"        {:type "integer"}}}}
+   {:name        "best_run"
+    :description "Find the run with the best value for a given metric."
+    :inputSchema {:type       "object"
+                  :properties {"experiment" {:type "string"}
+                               "metric"    {:type "string" :description "Metric key to optimize"}
+                               "direction" {:type "string" :enum ["max" "min"] :description "max (default) or min"}}
+                  :required   ["metric"]}}
+   {:name        "add_tag"
+    :description "Add or update a mutable tag on a run (works after the run is completed)."
+    :inputSchema {:type       "object"
+                  :properties {"run_id" {:type "string"} "key" {:type "string"} "value" {:type "string"}}
+                  :required   ["run_id" "key" "value"]}}
+   {:name        "set_note"
+    :description "Set a markdown note on a run. Supports LaTeX math."
+    :inputSchema {:type       "object"
+                  :properties {"run_id" {:type "string"} "note" {:type "string"}}
+                  :required   ["run_id" "note"]}}
+   {:name        "get_tags"
+    :description "Get all mutable tags for a run."
+    :inputSchema {:type       "object"
+                  :properties {"run_id" {:type "string"}}
+                  :required   ["run_id"]}}
+   {:name        "get_datasets"
+    :description "Get dataset metadata logged for a run."
+    :inputSchema {:type       "object"
+                  :properties {"run_id" {:type "string"}}
+                  :required   ["run_id"]}}
+   {:name        "list_experiments"
+    :description "List all experiments with metadata (name, description, owner)."
+    :inputSchema {:type "object" :properties {}}}
+   {:name        "create_experiment"
+    :description "Create or update experiment metadata."
+    :inputSchema {:type       "object"
+                  :properties {"name"        {:type "string"}
+                               "description" {:type "string"}
+                               "owner"       {:type "string"}}
+                  :required   ["name"]}}
+   {:name        "export_runs"
+    :description "Export runs as flat records (params + final metrics per run)."
+    :inputSchema {:type       "object"
+                  :properties {"experiment" {:type "string"} "limit" {:type "integer"}}}}
+   {:name        "diff_model_versions"
+    :description "Compare the runs behind two versions of a model."
+    :inputSchema {:type       "object"
+                  :properties {"model_name" {:type "string"} "v1" {:type "integer"} "v2" {:type "integer"}}
+                  :required   ["model_name" "v1" "v2"]}}])
 
 ;; --- Tool handlers ---------------------------------------------------
 
@@ -142,6 +197,68 @@
       (text-result (str "No matching version for " model-name
                         (when (seq selector)
                           (str " " (pr-str selector))))))))
+
+;; --- v0.4 tool handlers ---
+
+(defmethod handle-tool "search_runs" [_ args]
+  (let [opts (cond-> {:limit (or (get args "limit") 20)}
+               (get args "experiment")   (assoc :experiment (get args "experiment"))
+               (get args "metric_key")   (assoc :metric-key (keyword (get args "metric_key")))
+               (get args "op")           (assoc :op (keyword (get args "op")))
+               (get args "metric_value") (assoc :metric-value (get args "metric_value")))
+        runs (ml/search-runs opts)]
+    (text-result (with-out-str (repl/runs-table) ;; reuse table display
+                               (println (str (count runs) " runs matched"))))))
+
+(defmethod handle-tool "best_run" [_ args]
+  (let [opts {:metric   (keyword (get args "metric"))
+              :direction (keyword (or (get args "direction") "max"))}
+        opts (cond-> opts
+               (get args "experiment") (assoc :experiment (get args "experiment")))]
+    (if-let [r (ml/best-run opts)]
+      (text-result (with-out-str (repl/inspect r)))
+      (text-result "No matching run found."))))
+
+(defmethod handle-tool "add_tag" [_ args]
+  (ml/add-tag! (get args "run_id") (keyword (get args "key")) (get args "value"))
+  (text-result (str "Tag set: " (get args "key") "=" (get args "value"))))
+
+(defmethod handle-tool "set_note" [_ args]
+  (ml/set-note! (get args "run_id") (get args "note"))
+  (text-result "Note saved."))
+
+(defmethod handle-tool "get_tags" [_ args]
+  (text-result (pr-str (ml/get-tags (get args "run_id")))))
+
+(defmethod handle-tool "get_datasets" [_ args]
+  (text-result (pr-str (ml/get-datasets (get args "run_id")))))
+
+(defmethod handle-tool "list_experiments" [_ _]
+  (let [exps (ml/experiments)]
+    (if (empty? exps)
+      (text-result "(no experiments)")
+      (text-result (pr-str exps)))))
+
+(defmethod handle-tool "create_experiment" [_ args]
+  (let [e (ml/create-experiment! (get args "name")
+                                 {:description (get args "description")
+                                  :owner       (get args "owner")})]
+    (text-result (pr-str e))))
+
+(defmethod handle-tool "export_runs" [_ args]
+  (let [opts (cond-> {}
+               (get args "experiment") (assoc :experiment (get args "experiment"))
+               (get args "limit")      (assoc :limit (get args "limit")))
+        rows (ml/export-runs opts)]
+    (text-result (pr-str rows))))
+
+(defmethod handle-tool "diff_model_versions" [_ args]
+  (let [diff (reg/diff-versions (get args "model_name")
+                                (get args "v1")
+                                (get args "v2"))]
+    (if diff
+      (text-result (with-out-str (repl/print-comparison diff)))
+      (text-result "No matching versions found."))))
 
 (defmethod handle-tool :default [tool-name _]
   {:content [{:type "text" :text (str "Unknown tool: " tool-name)}]
