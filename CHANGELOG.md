@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.2.0] - 2026-04-17
+
+MCP server, web UI with local JS deps, and SQLite WAL mode for
+concurrent multi-agent access.
+
 ### Added
 
 - M7 MCP server (`chachaml.mcp`):
