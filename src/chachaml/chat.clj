@@ -147,7 +147,7 @@
     (when (> iterations 10)
       (throw (ex-info "Too many tool iterations" {:iterations iterations})))
     (let [resp   (openai-chat messages opts)
-          choice (first (:choices resp))
+          choice (get-in resp [:choices 0])
           msg    (:message choice)
           reason (:finish_reason choice)]
       (if (= "tool_calls" reason)

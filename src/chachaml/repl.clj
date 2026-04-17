@@ -55,23 +55,28 @@
                   :first (:value (first sorted))
                   :last  (:value (last sorted))})))))
 
+(defn- print-field
+  "Print a labelled field if `value` is non-nil."
+  [label value]
+  (when value
+    (println (format "%-13s %s" label value))))
+
 (defn- inspect-run* [run]
   (println (str "== Run " (:id run) " =="))
-  (println (format "Experiment:  %s" (:experiment run)))
-  (when (:name run)          (println (format "Name:        %s" (:name run))))
-  (println (format "Status:      %s" (:status run)))
-  (println (format "Started:     %s" (fmt/fmt-instant (:start-time run))))
+  (print-field "Experiment:" (:experiment run))
+  (print-field "Name:" (:name run))
+  (print-field "Status:" (:status run))
+  (print-field "Started:" (fmt/fmt-instant (:start-time run)))
   (when (:end-time run)
-    (println (format "Duration:    %s"
-                     (fmt/fmt-duration (:start-time run) (:end-time run)))))
-  (when (:error run)         (println (format "Error:       %s" (:error run))))
+    (print-field "Duration:" (fmt/fmt-duration (:start-time run) (:end-time run))))
+  (print-field "Error:" (:error run))
   (when (seq (:tags run))
-    (println (format "Tags:        %s" (pr-str (:tags run)))))
-  (when-let [git (:git (:env run))]
-    (println (format "Git:         %s%s on %s"
-                     (subs (or (:sha git) "—") 0 (min 7 (count (or (:sha git) ""))))
-                     (if (:dirty? git) " (dirty)" "")
-                     (or (:branch git) "?"))))
+    (print-field "Tags:" (pr-str (:tags run))))
+  (when-let [git (get-in run [:env :git])]
+    (let [sha    (or (:sha git) "—")
+          dirty  (if (:dirty? git) " (dirty)" "")
+          branch (or (:branch git) "?")]
+      (print-field "Git:" (str (subs sha 0 (min 7 (count sha))) dirty " on " branch))))
   (let [params (or (:params run) {})]
     (println)
     (println (format "Params (%d):" (count params)))
@@ -92,12 +97,12 @@
       (println (format "Artifacts (%d):" (count arts)))
       (doseq [{art-name :name :keys [size content-type]
                digest :hash} arts]
-        (println (format "  %s  %s  %s  sha=%s"
-                         (fmt/pad art-name 16)
-                         (fmt/pad (fmt/size-str (or size 0)) 10)
-                         (fmt/pad (or content-type "") 26)
-                         (subs (or digest "")
-                               0 (min 8 (count (or digest "")))))))))
+        (let [sha (fmt/short-id (or digest ""))]
+          (println (format "  %s  %s  %s  sha=%s"
+                           (fmt/pad art-name 16)
+                           (fmt/pad (fmt/size-str (or size 0)) 10)
+                           (fmt/pad (or content-type "") 26)
+                           sha))))))
   nil)
 
 (defn- inspect-model* [model]
@@ -141,11 +146,9 @@
     (println "(nil)")
 
     (string? x)
-    (if-let [r (ml/run x)]
-      (inspect-run* r)
-      (if-let [m (reg/model x)]
-        (inspect-model* m)
-        (println (format "(no run or model with id/name %s)" x))))
+    (or (some-> x ml/run inspect-run*)
+        (some-> x reg/model inspect-model*)
+        (println (format "(no run or model with id/name %s)" x)))
 
     (and (map? x) (:status x))
     (inspect-run* x)
@@ -161,19 +164,22 @@
 
 ;; --- Comparing runs --------------------------------------------------
 
+(defn- classify-key
+  "Classify a single key across `maps` into same/differ/partial."
+  [maps acc k]
+  (let [values (mapv #(get % k) maps)]
+    (cond
+      (apply = values)   (assoc-in acc [:same k] (first values))
+      (some nil? values) (assoc-in acc [:partial k] values)
+      :else              (assoc-in acc [:differ k] values))))
+
 (defn- diff-maps
   "Categorise keys across `maps` into `:same`, `:differ`, `:partial`."
   [maps]
   (let [all-keys (apply set/union (map (comp set keys) maps))]
-    (reduce
-     (fn [acc k]
-       (let [vs (mapv #(get % k) maps)]
-         (cond
-           (apply = vs)   (assoc-in acc [:same k] (first vs))
-           (some nil? vs) (assoc-in acc [:partial k] vs)
-           :else          (assoc-in acc [:differ k] vs))))
-     {:same {} :differ {} :partial {}}
-     all-keys)))
+    (reduce (partial classify-key maps)
+            {:same {} :differ {} :partial {}}
+            all-keys)))
 
 (defn compare-runs
   "Compare params and the latest value per metric across `run-ids`.

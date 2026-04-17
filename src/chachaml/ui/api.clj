@@ -23,11 +23,14 @@
   "GET /api/runs?experiment=…&status=…&limit=…"
   [request]
   (let [params (:query-params request)
-        filters (cond-> {}
-                  (get params "experiment") (assoc :experiment (get params "experiment"))
-                  (get params "status")     (assoc :status (keyword (get params "status")))
-                  (get params "limit")      (assoc :limit (parse-long (get params "limit"))))]
-    (json-response (ml/runs (merge {:limit 100} filters)))))
+        exp    (get params "experiment")
+        stat   (get params "status")
+        lim    (get params "limit")
+        filters (cond-> {:limit 100}
+                  exp  (assoc :experiment exp)
+                  stat (assoc :status (keyword stat))
+                  lim  (assoc :limit (parse-long lim)))]
+    (json-response (ml/runs filters))))
 
 (defn get-run-handler
   "GET /api/runs/:id"
@@ -80,22 +83,28 @@
          :body    (java.io.ByteArrayInputStream. data)})
       {:status 404 :body "Artifact not found"})))
 
+(defn- csv-cell
+  "Escape and quote a value for CSV output."
+  [v]
+  (str "\"" (str/replace (str (or v "")) "\"" "\"\"") "\""))
+
 (defn export-csv-handler
   "GET /api/runs/export?format=csv&experiment=..."
   [request]
-  (let [params  (:query-params request)
-        filters (cond-> {}
-                  (get params "experiment") (assoc :experiment (get params "experiment"))
-                  (get params "limit")      (assoc :limit (parse-long (get params "limit"))))
-        rows    (ml/export-runs filters)
-        all-keys (vec (sort (distinct (mapcat keys rows))))
-        header  (str/join "," (map #(str "\"" (name %) "\"") all-keys))
-        lines   (map (fn [row]
-                       (str/join "," (map (fn [k] (let [v (get row k "")]
-                                                    (str "\"" (str/replace (str v) "\"" "\"\"") "\"")))
-                                          all-keys)))
-                     rows)
-        csv     (str header "\n" (str/join "\n" lines) "\n")]
+  (let [params   (:query-params request)
+        exp      (get params "experiment")
+        lim      (get params "limit")
+        filters  (cond-> {}
+                   exp (assoc :experiment exp)
+                   lim (assoc :limit (parse-long lim)))
+        rows     (ml/export-runs filters)
+        all-keys (->> rows (mapcat keys) distinct sort vec)
+        header   (->> all-keys (map #(csv-cell (name %))) (str/join ","))
+        format-row (fn [row]
+                     (->> all-keys
+                          (map #(csv-cell (get row %)))
+                          (str/join ",")))
+        csv      (str header "\n" (str/join "\n" (map format-row rows)) "\n")]
     {:status  200
      :headers {"Content-Type" "text/csv; charset=utf-8"
                "Content-Disposition" "attachment; filename=\"runs.csv\""}

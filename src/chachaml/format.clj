@@ -31,7 +31,9 @@
 (defn short-id
   "Truncate a UUID string to the first 8 characters for display."
   [id]
-  (when id (subs (str id) 0 (min 8 (count (str id))))))
+  (when id
+    (let [s (str id)]
+      (subs s 0 (min 8 (count s))))))
 
 (defn size-str
   "Format a byte count as a human-readable string (B, KiB, MiB, GiB)."

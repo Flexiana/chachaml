@@ -138,10 +138,14 @@
   [s]
   {:content [{:type "text" :text s}]})
 
-(defn- run-filters [args]
-  (cond-> {:limit (or (get args "limit") 20)}
-    (get args "experiment") (assoc :experiment (get args "experiment"))
-    (get args "status")     (assoc :status (keyword (get args "status")))))
+(defn- run-filters
+  "Build a run query filter map from JSON tool arguments."
+  [args]
+  (let [exp  (get args "experiment")
+        stat (get args "status")]
+    (cond-> {:limit (or (get args "limit") 20)}
+      exp  (assoc :experiment exp)
+      stat (assoc :status (keyword stat)))))
 
 (defmulti handle-tool
   "Dispatch a tool call by name. Returns `{:content [{:type :text :text ...}]}`."

@@ -1,6 +1,7 @@
 (ns chachaml.ui.charts
   "Vega-Lite spec builders for metric visualisation."
-  (:require [clojure.data.json :as json]))
+  (:require [chachaml.format :as fmt]
+            [clojure.data.json :as json]))
 
 (defn metric-line-chart
   "Build a Vega-Lite JSON spec for a single metric's step-series.
@@ -22,11 +23,11 @@
   "Build a Vega-Lite JSON spec overlaying the same metric from multiple
   runs. `series` is `[{:run-id \"…\" :rows [{:step :value} …]} …]`."
   [metric-key series]
-  (let [values (mapcat (fn [{:keys [run-id rows]}]
-                         (mapv (fn [{:keys [step value]}]
-                                 {"step" step "value" value
-                                  "run"  (subs run-id 0 (min 8 (count run-id)))})
-                               rows))
+  (let [row->point (fn [short-run {:keys [step value]}]
+                     {"step" step "value" value "run" short-run})
+        values (mapcat (fn [{:keys [run-id rows]}]
+                         (let [short-run (fmt/short-id run-id)]
+                           (mapv (partial row->point short-run) rows)))
                        series)]
     (json/write-str
      {:$schema  "https://vega.github.io/schema/vega-lite/v5.json"
