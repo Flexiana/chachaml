@@ -22,10 +22,11 @@
 (defn- rand-val [] (.nextDouble ^Random rng))
 
 (defn- gen-blobs
-  "Generate `n` points per class in `d` dimensions around random centers."
-  [n-per-class n-classes d & {:keys [spread] :or {spread 1.0}}]
+  "Generate `n` points per class in `d` dimensions around random centers.
+  Default spread=1.5 produces overlapping clusters for realistic accuracy."
+  [n-per-class n-classes d & {:keys [spread] :or {spread 1.5}}]
   (let [centers (vec (repeatedly n-classes
-                                 #(vec (repeatedly d (fn [] (* 5.0 (gauss)))))))]
+                                 #(vec (repeatedly d (fn [] (* 2.0 (gauss)))))))]
     {:X (vec (mapcat (fn [c]
                        (repeatedly n-per-class
                                    #(mapv (fn [ci] (+ ci (* spread (gauss)))) c)))
@@ -101,12 +102,13 @@
                   e (- p yi)]
               (swap! w #(mapv (fn [wi xi] (- wi (* 0.1 e xi))) % x))
               (swap! b - (* 0.1 e))))
-          (let [loss (/ (reduce + (map (fn [x yi]
-                                         (let [p (sigmoid (+ (dot @w x) @b))]
-                                           (- (+ (* yi (Math/log (max p 1e-10)))
-                                                 (* (- 1 yi) (Math/log (max (- 1 p) 1e-10)))))))
-                                       Xtr ytr))
-                        (- (count Xtr)))]
+          (let [n    (count Xtr)
+                loss (/ (- (reduce + (map (fn [x yi]
+                                            (let [p (sigmoid (+ (dot @w x) @b))]
+                                              (+ (* yi (Math/log (max p 1e-10)))
+                                                 (* (- 1 yi) (Math/log (max (- 1 p) 1e-10))))))
+                                          Xtr ytr)))
+                        n)]
             (ml/log-metric :loss loss epoch)))
         (let [preds (mapv (fn [x] (if (> (sigmoid (+ (dot @w x) @b)) 0.5) 1 0)) Xte)
               acc   (accuracy yte preds)]
@@ -1037,18 +1039,24 @@
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         ytr-bin (mapv #(if (zero? %) 0 1) ytr)
         yte-bin (mapv #(if (zero? %) 0 1) yte)
-        ;; Model A: logistic, lr=0.1
+        ;; Model A: logistic, lr=0.1, 100 epochs (strong)
         wa (atom (vec (repeat 3 0.0))) ba (atom 0.0)
-        ;; Model B: logistic, lr=0.01
+        ;; Model B: logistic, lr=0.01, 5 epochs (weak — undertrained)
         wb (atom (vec (repeat 3 0.0))) bb (atom 0.0)]
+    ;; Train model A (100 epochs)
     (dotimes [_ 100]
       (doseq [[x yi] (map vector Xtr ytr-bin)]
-        (let [pa (sigmoid (+ (dot @wa x) @ba)) ea (- pa yi)
-              pb (sigmoid (+ (dot @wb x) @bb)) eb (- pb yi)]
-          (swap! wa #(mapv (fn [wi xi] (- wi (* 0.1 ea xi))) % x))
-          (swap! ba - (* 0.1 ea))
-          (swap! wb #(mapv (fn [wi xi] (- wi (* 0.01 eb xi))) % x))
-          (swap! bb - (* 0.01 eb)))))
+        (let [p (sigmoid (+ (dot @wa x) @ba))
+              e (- p yi)]
+          (swap! wa #(mapv (fn [wi xi] (- wi (* 0.1 e xi))) % x))
+          (swap! ba - (* 0.1 e)))))
+    ;; Train model B (only 5 epochs — intentionally undertrained)
+    (dotimes [_ 5]
+      (doseq [[x yi] (map vector Xtr ytr-bin)]
+        (let [p (sigmoid (+ (dot @wb x) @bb))
+              e (- p yi)]
+          (swap! wb #(mapv (fn [wi xi] (- wi (* 0.01 e xi))) % x))
+          (swap! bb - (* 0.01 e)))))
     (ml/with-run {:experiment "25-ab-evaluation"
                   :tags {:category "evaluation"}}
       (let [preds-a (mapv (fn [x] (if (> (sigmoid (+ (dot @wa x) @ba)) 0.5) 1 0)) Xte)
