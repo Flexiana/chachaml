@@ -112,3 +112,15 @@
                fmt  (serialize/format-from-content-type
                      (:content-type art))]
            (serialize/decode {:format fmt :bytes data})))))))
+
+(defn diff-versions
+  "Compare the runs behind two versions of the same model. Returns
+  the same shape as `chachaml.repl/compare-runs` — params/metrics
+  diff between the runs that produced version `v1` and `v2`."
+  [model-name v1 v2]
+  (let [store (ctx/current-store)
+        ver1  (p/-get-version store model-name v1)
+        ver2  (p/-get-version store model-name v2)]
+    (when (and ver1 ver2)
+      (let [compare-runs (requiring-resolve 'chachaml.repl/compare-runs)]
+        (compare-runs [(:run-id ver1) (:run-id ver2)])))))

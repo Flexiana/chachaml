@@ -84,7 +84,34 @@
       created_at  INTEGER NOT NULL,
       PRIMARY KEY (model_name, version)
     )"
-   "CREATE INDEX IF NOT EXISTS idx_versions_stage ON model_versions(model_name, stage)"])
+   "CREATE INDEX IF NOT EXISTS idx_versions_stage ON model_versions(model_name, stage)"
+   ;; Mutable tags (separate from the inline EDN tags column on runs)
+   "CREATE TABLE IF NOT EXISTS tags (
+      run_id TEXT NOT NULL,
+      key    TEXT NOT NULL,
+      value  TEXT NOT NULL,
+      PRIMARY KEY (run_id, key)
+    )"
+   ;; Dataset tracking
+   "CREATE TABLE IF NOT EXISTS datasets (
+      id         TEXT PRIMARY KEY,
+      run_id     TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'train',
+      n_rows     INTEGER,
+      n_cols     INTEGER,
+      features   TEXT,
+      hash       TEXT,
+      source     TEXT,
+      created_at INTEGER NOT NULL
+    )"
+   "CREATE INDEX IF NOT EXISTS idx_datasets_run ON datasets(run_id)"
+   ;; Experiments metadata
+   "CREATE TABLE IF NOT EXISTS experiments (
+      name        TEXT PRIMARY KEY,
+      description TEXT,
+      owner       TEXT,
+      created_at  INTEGER NOT NULL
+    )"])
 
 (defn- migrate!
   "Apply (idempotent) schema statements and pragmas against `connectable`.
@@ -372,6 +399,113 @@
       (mapv (fn [{k :key v :value s :step ts :timestamp}]
               {:key (keyword k) :value v :step s :timestamp ts})
             rows)))
+
+  ;; --- Mutable tags ---
+  (-set-tag! [_ run-id k v]
+    (jdbc/execute-one!
+     datasource
+     ["INSERT INTO tags (run_id, key, value) VALUES (?, ?, ?)
+       ON CONFLICT(run_id, key) DO UPDATE SET value = excluded.value"
+      run-id (enc-key k) (str v)])
+    nil)
+
+  (-get-tags [_ run-id]
+    (let [rows (jdbc/execute! datasource
+                              ["SELECT key, value FROM tags WHERE run_id = ? ORDER BY key" run-id]
+                              {:builder-fn rs/as-unqualified-maps})]
+      (into {} (map (fn [{k :key v :value}] [(keyword k) v])) rows)))
+
+  ;; --- Dataset tracking ---
+  (-log-dataset! [_ run-id dataset]
+    (let [ds-id (str (random-uuid))
+          now   (System/currentTimeMillis)]
+      (jdbc/execute-one!
+       datasource
+       ["INSERT INTO datasets (id, run_id, role, n_rows, n_cols, features, hash, source, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ds-id run-id
+        (or (:role dataset) "train")
+        (:n-rows dataset)
+        (:n-cols dataset)
+        (enc (:features dataset))
+        (:hash dataset)
+        (:source dataset)
+        now])
+      (assoc dataset :id ds-id :run-id run-id :created-at now)))
+
+  (-get-datasets [_ run-id]
+    (let [rows (jdbc/execute!
+                datasource
+                ["SELECT * FROM datasets WHERE run_id = ? ORDER BY created_at" run-id])]
+      (mapv (fn [row]
+              {:id         (:datasets/id row)
+               :run-id     (:datasets/run_id row)
+               :role       (:datasets/role row)
+               :n-rows     (:datasets/n_rows row)
+               :n-cols     (:datasets/n_cols row)
+               :features   (dec-edn (:datasets/features row))
+               :hash       (:datasets/hash row)
+               :source     (:datasets/source row)
+               :created-at (:datasets/created_at row)})
+            rows)))
+
+  ;; --- Metric-based run search ---
+  (-query-runs-by-metric [_ {:keys [experiment metric-key op metric-value
+                                    sort-by-metric sort-dir limit]
+                             :or   {limit 100 sort-dir :desc}}]
+    (let [base-where (if experiment "WHERE r.experiment = ?" "WHERE 1=1")
+          metric-clause (when (and metric-key op metric-value)
+                          (str " AND r.id IN (SELECT run_id FROM metrics WHERE key = ? AND value "
+                               (case op :> ">" :>= ">=" :< "<" :<= "<=" := "=" ">")
+                               " ?)"))
+          order (if sort-by-metric
+                  (str " ORDER BY (SELECT MAX(value) FROM metrics WHERE run_id = r.id AND key = '"
+                       (enc-key sort-by-metric) "') " (if (= sort-dir :asc) "ASC" "DESC"))
+                  " ORDER BY r.start_time DESC")
+          sql (str "SELECT * FROM runs r " base-where metric-clause order " LIMIT ?")
+          params (cond-> []
+                   experiment       (conj experiment)
+                   metric-key       (conj (enc-key metric-key))
+                   metric-value     (conj (double metric-value))
+                   true             (conj (long limit)))]
+      (->> (jdbc/execute! datasource (into [sql] params))
+           (mapv ->run-map))))
+
+  ;; --- Experiment metadata ---
+  (-upsert-experiment! [_ experiment]
+    (jdbc/execute-one!
+     datasource
+     ["INSERT INTO experiments (name, description, owner, created_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(name) DO UPDATE SET
+         description = COALESCE(excluded.description, experiments.description),
+         owner = COALESCE(excluded.owner, experiments.owner)"
+      (:name experiment) (:description experiment) (:owner experiment)
+      (System/currentTimeMillis)])
+    (let [row (jdbc/execute-one!
+               datasource
+               ["SELECT * FROM experiments WHERE name = ?" (:name experiment)])]
+      {:name        (:experiments/name row)
+       :description (:experiments/description row)
+       :owner       (:experiments/owner row)
+       :created-at  (:experiments/created_at row)}))
+
+  (-get-experiment [_ experiment-name]
+    (when-let [row (jdbc/execute-one!
+                    datasource
+                    ["SELECT * FROM experiments WHERE name = ?" experiment-name])]
+      {:name        (:experiments/name row)
+       :description (:experiments/description row)
+       :owner       (:experiments/owner row)
+       :created-at  (:experiments/created_at row)}))
+
+  (-list-experiments [_]
+    (->> (jdbc/execute! datasource ["SELECT * FROM experiments ORDER BY name"])
+         (mapv (fn [row]
+                 {:name        (:experiments/name row)
+                  :description (:experiments/description row)
+                  :owner       (:experiments/owner row)
+                  :created-at  (:experiments/created_at row)}))))
 
   p/ArtifactStore
   (-put-artifact! [_ run-id art-name data content-type]

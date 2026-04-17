@@ -122,6 +122,13 @@
          (end-run! run# :failed (ex-message t#))
          (throw t#)))))
 
+;; --- Batch metric buffer (used by with-batched-metrics) ---------------
+
+(def ^:dynamic *metric-buffer*
+  "When non-nil, `log-metric`/`log-metrics` append here instead of
+  writing to the store. Set by `with-batched-metrics`."
+  nil)
+
 ;; --- Logging ----------------------------------------------------------
 
 (defn log-params
@@ -142,7 +149,8 @@
   "Persist a map of numeric metrics on the current run.
 
   All metrics are recorded with the same `step` (default 0) and the
-  current timestamp."
+  current timestamp. When inside `with-batched-metrics`, rows are
+  buffered instead of written immediately."
   ([m] (log-metrics m {}))
   ([m {:keys [step] :or {step 0}}]
    (when (seq m)
@@ -151,9 +159,11 @@
            rows (mapv (fn [[k v]]
                         {:key k :value v :step step :timestamp now})
                       m)]
-       (p/-log-metrics! (ctx/current-store)
-                        (:id (ctx/require-run!))
-                        rows)))
+       (if *metric-buffer*
+         (swap! *metric-buffer* into rows)
+         (p/-log-metrics! (ctx/current-store)
+                          (:id (ctx/require-run!))
+                          rows))))
    nil))
 
 (defn log-metric
@@ -223,7 +233,9 @@
       (assoc r
              :params    (p/-get-params store run-id)
              :metrics   (p/-get-metrics store run-id)
-             :artifacts (p/-list-artifacts store run-id)))))
+             :artifacts (p/-list-artifacts store run-id)
+             :tags      (merge (:tags r) (p/-get-tags store run-id))
+             :datasets  (p/-get-datasets store run-id)))))
 
 (defn runs
   "List runs matching `filters`, most recent first.
@@ -240,3 +252,158 @@
   if no runs exist. Equivalent to `(first (runs {:limit 1}))`."
   []
   (first (runs {:limit 1})))
+
+;; --- Mutable tags / notes --------------------------------------------
+
+(defn add-tag!
+  "Set a mutable tag on a run (creates or overwrites). Works on any run,
+  including completed/failed ones. Useful for post-hoc annotation."
+  [run-id k v]
+  (p/-set-tag! (ctx/current-store) run-id k v))
+
+(defn set-note!
+  "Convenience: set a `:note` tag on a run. Overwrites any previous note."
+  [run-id note-text]
+  (add-tag! run-id :note note-text))
+
+(defn get-tags
+  "Return the mutable tags map for a run."
+  [run-id]
+  (p/-get-tags (ctx/current-store) run-id))
+
+;; --- Dataset tracking ------------------------------------------------
+
+(defn log-dataset!
+  "Record dataset metadata on the current run. Returns the dataset map.
+
+  `opts` may include:
+  - `:role`      \"train\", \"test\", \"validation\" (default \"train\")
+  - `:n-rows`    number of samples
+  - `:n-cols`    number of features
+  - `:features`  vector of feature names
+  - `:hash`      content hash (computed by caller)
+  - `:source`    string describing the data source (path, URL, query)"
+  [opts]
+  (p/-log-dataset! (ctx/current-store) (:id (ctx/require-run!)) opts))
+
+(defn get-datasets
+  "Return dataset metadata for a run."
+  [run-id]
+  (p/-get-datasets (ctx/current-store) run-id))
+
+;; --- Metric-based search ---------------------------------------------
+
+(defn search-runs
+  "Find runs filtered by metric values.
+
+  `opts` may include:
+  - `:experiment`      filter by experiment name
+  - `:metric-key`      the metric to filter on (keyword)
+  - `:op`              comparison operator (`:>`, `:>=`, `:<`, `:<=`, `:=`)
+  - `:metric-value`    the threshold value
+  - `:sort-by-metric`  sort results by this metric's max value
+  - `:sort-dir`        `:asc` or `:desc` (default `:desc`)
+  - `:limit`           max results (default 100)
+
+  Example: `(search-runs {:metric-key :accuracy :op :> :metric-value 0.9})`"
+  [opts]
+  (p/-query-runs-by-metric (ctx/current-store) opts))
+
+(defn best-run
+  "Find the run with the highest (or lowest) value for a metric.
+
+  `(best-run {:experiment \"X\" :metric :accuracy})` returns the run
+  with the max accuracy. Pass `:direction :min` for metrics like loss."
+  [{:keys [experiment metric direction] :or {direction :max}}]
+  (first (search-runs {:experiment     experiment
+                       :sort-by-metric metric
+                       :sort-dir       (if (= direction :min) :asc :desc)
+                       :limit          1})))
+
+;; --- Experiment metadata ---------------------------------------------
+
+(defn create-experiment!
+  "Create or update experiment metadata. Idempotent.
+
+  `(create-experiment! \"iris\" {:description \"Iris classification\"
+                                :owner \"jiri\"})`"
+  [experiment-name opts]
+  (p/-upsert-experiment! (ctx/current-store)
+                         (assoc opts :name experiment-name)))
+
+(defn experiment
+  "Fetch experiment metadata by name, or nil."
+  [experiment-name]
+  (p/-get-experiment (ctx/current-store) experiment-name))
+
+(defn experiments
+  "List all experiments with metadata."
+  []
+  (p/-list-experiments (ctx/current-store)))
+
+;; --- Batch metric logging --------------------------------------------
+
+(defmacro with-batched-metrics
+  "Buffer metric logging inside `body`. Metrics are accumulated in memory
+  and flushed to the store in one batch when the block exits (or on
+  exception). Reduces SQL round-trips in tight training loops.
+
+  Inside the block, `log-metric` and `log-metrics` append to the buffer
+  instead of writing immediately."
+  [& body]
+  `(let [buffer# (atom [])
+         run-id# (:id (ctx/require-run!))
+         store#  (ctx/current-store)]
+     (binding [~'chachaml.core/*metric-buffer* buffer#]
+       (try
+         (let [result# (do ~@body)]
+           (when (seq @buffer#)
+             (p/-log-metrics! store# run-id# @buffer#))
+           result#)
+         (catch Throwable t#
+           (when (seq @buffer#)
+             (p/-log-metrics! store# run-id# @buffer#))
+           (throw t#))))))
+
+;; --- Table artifacts -------------------------------------------------
+
+(defn log-table
+  "Log a table (seq of row maps or a `{:headers [...] :rows [[...]...]}`
+  structure) as a structured artifact. Rendered as an HTML table in the
+  UI."
+  [art-name table-data]
+  (log-artifact art-name table-data
+                {:format :edn :content-type "application/x-chachaml-table"}))
+
+;; --- Export ----------------------------------------------------------
+
+(defn- metric-summary-for-run
+  "Extract the latest value per metric key for a run."
+  [r]
+  (->> (:metrics r)
+       (group-by :key)
+       (reduce-kv (fn [acc k vs]
+                    (assoc acc k (:value (last (sort-by :step vs)))))
+                  {})))
+
+(defn export-runs
+  "Export runs as a vector of flat maps (one per run) with params and
+  final metrics merged in. Suitable for CSV/JSON export.
+
+  Returns `[{:id ... :experiment ... :lr 0.01 :accuracy 0.94 ...} ...]`."
+  ([] (export-runs {}))
+  ([filters]
+   (let [rs (runs filters)]
+     (mapv (fn [r]
+             (let [full (run (:id r))]
+               (merge {:id         (:id r)
+                       :experiment (:experiment r)
+                       :name       (:name r)
+                       :status     (:status r)
+                       :start-time (:start-time r)
+                       :end-time   (:end-time r)
+                       :duration   (when (and (:start-time r) (:end-time r))
+                                     (- (:end-time r) (:start-time r)))}
+                      (:params full)
+                      (metric-summary-for-run full))))
+           rs))))

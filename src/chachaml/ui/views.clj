@@ -200,16 +200,30 @@
                               [:th {:class "p-2 text-left"} "Name"]
                               [:th {:class "p-2 text-left"} "Size"]
                               [:th {:class "p-2 text-left"} "Type"]
-                              [:th {:class "p-2 text-left"} "SHA-256"]]]
+                              [:th {:class "p-2 text-left"} "SHA-256"]
+                              [:th {:class "p-2 text-left"} ""]]]
                      [:tbody
-                      (for [{art-name :name :keys [size content-type]
+                      (for [{art-name :name :keys [id size content-type]
                              digest :hash} artifacts]
                         [:tr {:class "border-b"}
                          [:td {:class "p-2 font-mono text-xs"} art-name]
                          [:td {:class "p-2"} (size-str size)]
                          [:td {:class "p-2 text-xs text-gray-500"} (or content-type "—")]
                          [:td {:class "p-2 font-mono text-xs text-gray-400"}
-                          (when digest (subs digest 0 (min 12 (count digest))))]])]]]))))
+                          (when digest (subs digest 0 (min 12 (count digest))))]
+                         [:td {:class "p-2"}
+                          (when id
+                            (cond
+                              ;; Image preview
+                              (and content-type (re-find #"^image/" content-type))
+                              [:img {:src (str "/api/artifacts/" id "/download")
+                                     :class "max-h-20 rounded"
+                                     :alt art-name}]
+                              ;; Download link for other types
+                              :else
+                              [:a {:href (str "/api/artifacts/" id "/download")
+                                   :class "text-indigo-600 hover:underline text-xs"}
+                               "download"]))]])]]]))))
 
 ;; --- Run comparison --------------------------------------------------
 

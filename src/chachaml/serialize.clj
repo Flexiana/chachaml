@@ -33,9 +33,10 @@
    :file  "application/octet-stream"})
 
 (def ^:private content-type->format
-  {"application/x-nippy"      :nippy
-   "application/edn"          :edn
-   "application/octet-stream" :bytes})
+  {"application/x-nippy"           :nippy
+   "application/edn"               :edn
+   "application/x-chachaml-table"  :edn
+   "application/octet-stream"      :bytes})
 
 (defn auto-format
   "Return the default `:format` keyword for a value based on its type.

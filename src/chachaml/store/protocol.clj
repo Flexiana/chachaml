@@ -24,7 +24,15 @@
   (-log-params! [this run-id params] "Insert immutable params; ignores duplicates.")
   (-get-params [this run-id] "Return params map for run.")
   (-log-metrics! [this run-id metrics] "Append metric rows: `[{:key :loss :value 0.3 :step 1}…]`.")
-  (-get-metrics [this run-id] "Return all metric rows for a run."))
+  (-get-metrics [this run-id] "Return all metric rows for a run.")
+  (-set-tag! [this run-id k v] "Upsert a mutable tag (string k/v) on a run.")
+  (-get-tags [this run-id] "Return tags map for a run.")
+  (-log-dataset! [this run-id dataset] "Insert dataset metadata; returns dataset map.")
+  (-get-datasets [this run-id] "Return seq of dataset metadata maps for a run.")
+  (-query-runs-by-metric [this filters] "Query runs filtered by metric values.")
+  (-upsert-experiment! [this experiment] "Insert or update experiment metadata.")
+  (-get-experiment [this experiment-name] "Fetch experiment metadata, or nil.")
+  (-list-experiments [this] "Return all experiments."))
 
 (defprotocol ArtifactStore
   "Binary artifact persistence keyed by run + artifact name."

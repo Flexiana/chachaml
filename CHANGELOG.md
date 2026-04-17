@@ -7,7 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-(no changes yet)
+### Added
+
+- **Mutable tags + run notes**: `add-tag!`, `set-note!`, `get-tags` —
+  annotate runs after they complete. Tags stored in a dedicated table
+  with upsert semantics; merged with inline tags in `(run id)`.
+- **Dataset tracking**: `log-dataset!`, `get-datasets` — capture
+  row/col counts, feature names, content hash, data source per run.
+  New `datasets` table. Included in `(run id)` results.
+- **Metric-based run search**: `search-runs` with `:metric-key`,
+  `:op`, `:metric-value` filters. `best-run` shortcut for
+  `{:metric :accuracy :direction :max}`.
+- **Batch metric logging**: `with-batched-metrics` macro — buffers
+  metrics in an atom, flushes to store in one batch on exit (or on
+  exception). `log-metric`/`log-metrics` respect `*metric-buffer*`.
+- **Structured table artifacts**: `log-table` stores tables as EDN
+  with content-type `application/x-chachaml-table`. Added to the
+  serialize content-type→format mapping.
+- **Image artifact preview**: run detail UI detects `image/*`
+  content-type and renders inline `<img>` tags. Other artifacts get a
+  download link via `/api/artifacts/:id/download`.
+- **Export runs to CSV**: `export-runs` returns flat maps (params +
+  final metrics per run). `/api/export?format=csv` endpoint.
+- **Experiment metadata**: `create-experiment!`, `experiment`,
+  `experiments` — name, description, owner. New `experiments` table
+  with upsert.
+- **Model version diff**: `chachaml.registry/diff-versions` compares
+  the runs behind two versions of the same model.
+- 18 tests covering all new features.
 
 ## [0.3.0] - 2026-04-17
 

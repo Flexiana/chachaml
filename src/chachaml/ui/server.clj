@@ -93,9 +93,11 @@
    ["/api/runs" {:get {:handler api/list-runs-handler}}]
    ["/api/runs/:id" {:get {:handler api/get-run-handler}}]
    ["/api/compare" {:get {:handler api/compare-runs-handler}}]
+   ["/api/export" {:get {:handler api/export-csv-handler}}]
    ["/api/models" {:get {:handler api/list-models-handler}}]
    ["/api/models/:name" {:get {:handler api/get-model-handler}}]
-   ["/api/experiments" {:get {:handler api/experiments-handler}}]])
+   ["/api/experiments" {:get {:handler api/experiments-handler}}]
+   ["/api/artifacts/:id/download" {:get {:handler api/artifact-download-handler}}]])
 
 (defn app
   "Build the Ring handler (with query-params middleware). Requires

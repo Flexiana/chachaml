@@ -7,6 +7,8 @@
   (:require [chachaml.core :as ml]
             [chachaml.registry :as reg]
             [chachaml.repl :as repl]
+            [chachaml.store.protocol :as p]
+            [chachaml.context :as ctx]
             [clojure.data.json :as json]
             [clojure.string :as str]))
 
@@ -64,3 +66,37 @@
   (let [all-runs (ml/runs {:limit 10000})
         exps     (vec (sort (distinct (map :experiment all-runs))))]
     (json-response exps)))
+
+(defn artifact-download-handler
+  "GET /api/artifacts/:id/download — serve raw artifact bytes."
+  [request]
+  (let [artifact-id (get-in request [:path-params :id])
+        store       (ctx/current-store)]
+    (if-let [art (p/-get-artifact store artifact-id)]
+      (let [data (p/-get-artifact-bytes store artifact-id)]
+        {:status  200
+         :headers {"Content-Type"        (or (:content-type art) "application/octet-stream")
+                   "Content-Disposition" (str "inline; filename=\"" (:name art) "\"")}
+         :body    (java.io.ByteArrayInputStream. data)})
+      {:status 404 :body "Artifact not found"})))
+
+(defn export-csv-handler
+  "GET /api/runs/export?format=csv&experiment=..."
+  [request]
+  (let [params  (:query-params request)
+        filters (cond-> {}
+                  (get params "experiment") (assoc :experiment (get params "experiment"))
+                  (get params "limit")      (assoc :limit (parse-long (get params "limit"))))
+        rows    (ml/export-runs filters)
+        all-keys (vec (sort (distinct (mapcat keys rows))))
+        header  (str/join "," (map #(str "\"" (name %) "\"") all-keys))
+        lines   (map (fn [row]
+                       (str/join "," (map (fn [k] (let [v (get row k "")]
+                                                    (str "\"" (str/replace (str v) "\"" "\"\"") "\"")))
+                                          all-keys)))
+                     rows)
+        csv     (str header "\n" (str/join "\n" lines) "\n")]
+    {:status  200
+     :headers {"Content-Type" "text/csv; charset=utf-8"
+               "Content-Disposition" "attachment; filename=\"runs.csv\""}
+     :body    csv}))
