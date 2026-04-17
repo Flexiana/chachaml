@@ -113,6 +113,12 @@
                      (:content-type art))]
            (serialize/decode {:format fmt :bytes data})))))))
 
+(defn set-model-note!
+  "Set or update the description/note on a model. Supports markdown."
+  [model-name note]
+  (p/-upsert-experiment! (ctx/current-store)
+                         {:name model-name :description note}))
+
 (defn diff-versions
   "Compare the runs behind two versions of the same model. Returns
   the same shape as `chachaml.repl/compare-runs` — params/metrics

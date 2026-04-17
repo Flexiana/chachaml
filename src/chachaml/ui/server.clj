@@ -97,7 +97,15 @@
    ["/api/models" {:get {:handler api/list-models-handler}}]
    ["/api/models/:name" {:get {:handler api/get-model-handler}}]
    ["/api/experiments" {:get {:handler api/experiments-handler}}]
-   ["/api/artifacts/:id/download" {:get {:handler api/artifact-download-handler}}]])
+   ["/api/artifacts/:id/download" {:get {:handler api/artifact-download-handler}}]
+   ;; v0.4 endpoints
+   ["/api/tags/:id" {:get  {:handler api/get-tags-handler}
+                     :post {:handler api/add-tag-handler}}]
+   ["/api/note/:id" {:post {:handler api/set-run-note-handler}}]
+   ["/api/datasets/:id" {:get {:handler api/get-datasets-handler}}]
+   ["/api/search" {:get {:handler api/search-runs-handler}}]
+   ["/api/model-note/:name" {:post {:handler api/set-model-note-handler}}]
+   ["/api/diff/:name/:v1/:v2" {:get {:handler api/diff-versions-handler}}]])
 
 (defn app
   "Build the Ring handler (with query-params middleware). Requires

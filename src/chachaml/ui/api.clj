@@ -100,3 +100,56 @@
      :headers {"Content-Type" "text/csv; charset=utf-8"
                "Content-Disposition" "attachment; filename=\"runs.csv\""}
      :body    csv}))
+
+(defn get-tags-handler
+  "GET /api/runs/:id/tags"
+  [request]
+  (json-response (ml/get-tags (get-in request [:path-params :id]))))
+
+(defn add-tag-handler
+  "POST /api/runs/:id/tags — JSON body `{\"key\":\"k\",\"value\":\"v\"}`."
+  [request]
+  (let [body (json/read-str (slurp (:body request)) :key-fn keyword)]
+    (ml/add-tag! (get-in request [:path-params :id])
+                 (keyword (:key body)) (:value body))
+    (json-response {:ok true})))
+
+(defn set-run-note-handler
+  "POST /api/runs/:id/note — JSON body `{\"note\":\"...\"}`."
+  [request]
+  (let [body (json/read-str (slurp (:body request)) :key-fn keyword)]
+    (ml/set-note! (get-in request [:path-params :id]) (:note body))
+    (json-response {:ok true})))
+
+(defn get-datasets-handler
+  "GET /api/runs/:id/datasets"
+  [request]
+  (json-response (ml/get-datasets (get-in request [:path-params :id]))))
+
+(defn search-runs-handler
+  "GET /api/search?metric_key=accuracy&op=>&metric_value=0.9&experiment=..."
+  [request]
+  (let [params (:query-params request)
+        opts   (cond-> {:limit (or (some-> (get params "limit") parse-long) 100)}
+                 (get params "experiment")   (assoc :experiment (get params "experiment"))
+                 (get params "metric_key")   (assoc :metric-key (keyword (get params "metric_key")))
+                 (get params "op")           (assoc :op (keyword (get params "op")))
+                 (get params "metric_value") (assoc :metric-value (parse-double (get params "metric_value"))))]
+    (json-response (ml/search-runs opts))))
+
+(defn set-model-note-handler
+  "POST /api/models/:name/note — JSON body `{\"note\":\"...\"}`."
+  [request]
+  (let [model-name (get-in request [:path-params :name])
+        body       (json/read-str (slurp (:body request)) :key-fn keyword)]
+    (p/-upsert-experiment! (ctx/current-store)
+                           {:name model-name :description (:note body)})
+    (json-response {:ok true})))
+
+(defn diff-versions-handler
+  "GET /api/diff/:name/:v1/:v2"
+  [request]
+  (let [{model-name :name v1-str :v1 v2-str :v2} (:path-params request)]
+    (if-let [diff (reg/diff-versions model-name (parse-long v1-str) (parse-long v2-str))]
+      (json-response diff)
+      {:status 404 :body "Versions not found"})))
