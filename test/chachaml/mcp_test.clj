@@ -158,6 +158,61 @@
                        {"name" "bogus_tool" "arguments" {}}))]
     (is (true? (get-in resp ["result" "isError"])))))
 
+;; --- v0.4 MCP tools --------------------------------------------------
+
+(deftest mcp-search-runs
+  (ml/with-run {:experiment "s"} (ml/log-metric :accuracy 0.95))
+  (let [resp (mcp/handle-message
+              (request 1 "tools/call"
+                       {"name" "search_runs"
+                        "arguments" {"metric_key" "accuracy"
+                                     "op" ">" "metric_value" 0.9}}))]
+    (is (some? (result-text resp)))))
+
+(deftest mcp-best-run
+  (ml/with-run {:experiment "b"} (ml/log-metric :accuracy 0.9))
+  (let [resp (mcp/handle-message
+              (request 1 "tools/call"
+                       {"name" "best_run"
+                        "arguments" {"metric" "accuracy"}}))]
+    (is (some? (result-text resp)))))
+
+(deftest mcp-add-tag-and-get
+  (let [rid (atom nil)]
+    (ml/with-run {} (reset! rid (:id (ctx/current-run))))
+    (mcp/handle-message
+     (request 1 "tools/call"
+              {"name" "add_tag"
+               "arguments" {"run_id" @rid "key" "quality" "value" "good"}}))
+    (let [resp (mcp/handle-message
+                (request 2 "tools/call"
+                         {"name" "get_tags"
+                          "arguments" {"run_id" @rid}}))]
+      (is (clojure.string/includes? (result-text resp) "quality")))))
+
+(deftest mcp-set-note
+  (let [rid (atom nil)]
+    (ml/with-run {} (reset! rid (:id (ctx/current-run))))
+    (let [resp (mcp/handle-message
+                (request 1 "tools/call"
+                         {"name" "set_note"
+                          "arguments" {"run_id" @rid "note" "test note"}}))]
+      (is (clojure.string/includes? (result-text resp) "Note saved")))))
+
+(deftest mcp-list-experiments
+  (ml/create-experiment! "mcp-test" {:description "test"})
+  (let [resp (mcp/handle-message
+              (request 1 "tools/call"
+                       {"name" "list_experiments" "arguments" {}}))]
+    (is (clojure.string/includes? (result-text resp) "mcp-test"))))
+
+(deftest mcp-export-runs
+  (ml/with-run {:experiment "ex"} (ml/log-params {:lr 0.01}))
+  (let [resp (mcp/handle-message
+              (request 1 "tools/call"
+                       {"name" "export_runs" "arguments" {"limit" 5}}))]
+    (is (clojure.string/includes? (result-text resp) ":lr"))))
+
 ;; --- Integration: stdio round-trip -----------------------------------
 
 (deftest ^:integration stdio-round-trip

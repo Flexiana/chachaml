@@ -82,11 +82,46 @@
 
 ;; --- Router ----------------------------------------------------------
 
+(defn- experiments-page-handler [_request]
+  (let [exps       (ml/experiments)
+        all-runs   (ml/runs {:limit 10000})
+        run-counts (frequencies (map :experiment all-runs))]
+    {:status 200
+     :headers {"Content-Type" "text/html; charset=utf-8"}
+     :body (views/experiments-page exps run-counts)}))
+
+(defn- search-page-handler [request]
+  (let [params     (:query-params request)
+        metric-key (not-empty (get params "metric_key"))
+        opts       (when metric-key
+                     (cond-> {:limit 50}
+                       (not-empty (get params "experiment"))
+                       (assoc :experiment (get params "experiment"))
+                       metric-key
+                       (assoc :metric-key (keyword metric-key))
+                       (not-empty (get params "op"))
+                       (assoc :op (keyword (get params "op")))
+                       (not-empty (get params "metric_value"))
+                       (assoc :metric-value (parse-double (get params "metric_value")))))
+        results    (when opts (ml/search-runs opts))
+        all-runs   (ml/runs {:limit 10000})
+        exp-list   (vec (sort (distinct (map :experiment all-runs))))]
+    {:status 200
+     :headers {"Content-Type" "text/html; charset=utf-8"}
+     :body (views/search-page results exp-list
+                              (when opts
+                                {:experiment  (get params "experiment")
+                                 :metric-key  metric-key
+                                 :op          (get params "op")
+                                 :metric-value (get params "metric_value")}))}))
+
 (def ^:private routes
   [["/" {:get {:handler (fn [_] {:status 302 :headers {"Location" "/runs"}})}}]
    ["/runs" {:get {:handler runs-handler}}]
    ["/runs/:id" {:get {:handler run-handler}}]
    ["/compare" {:get {:handler compare-handler}}]
+   ["/experiments" {:get {:handler experiments-page-handler}}]
+   ["/search" {:get {:handler search-page-handler}}]
    ["/models" {:get {:handler models-handler}}]
    ["/models/:name" {:get {:handler model-handler}}]
    ;; JSON API

@@ -150,6 +150,85 @@
     (dotimes [_ 5] (p/-create-run! store (new-run {})))
     (is (= 2 (count (p/-query-runs store {:limit 2}))))))
 
+;; --- Tags (v0.4) -----------------------------------------------------
+
+(deftest set-and-get-tags
+  (let [store (mem-store)
+        run   (new-run {})]
+    (p/-create-run! store run)
+    (p/-set-tag! store (:id run) :reviewed "true")
+    (p/-set-tag! store (:id run) :quality "good")
+    (is (= {:reviewed "true" :quality "good"}
+           (p/-get-tags store (:id run))))))
+
+(deftest tag-upsert-overwrites
+  (let [store (mem-store)
+        run   (new-run {})]
+    (p/-create-run! store run)
+    (p/-set-tag! store (:id run) :status "pending")
+    (p/-set-tag! store (:id run) :status "approved")
+    (is (= "approved" (:status (p/-get-tags store (:id run)))))))
+
+;; --- Datasets (v0.4) -------------------------------------------------
+
+(deftest log-and-get-datasets
+  (let [store (mem-store)
+        run   (new-run {})]
+    (p/-create-run! store run)
+    (let [ds (p/-log-dataset! store (:id run) {:role "train" :n-rows 100
+                                               :n-cols 5
+                                               :features [:a :b :c :d :e]
+                                               :hash "abc123"})]
+      (is (string? (:id ds)))
+      (is (= 100 (:n-rows ds))))
+    (is (= 1 (count (p/-get-datasets store (:id run)))))))
+
+;; --- Metric search (v0.4) --------------------------------------------
+
+(deftest query-runs-by-metric-filter
+  (let [store (mem-store)
+        r1 (new-run {:experiment "search"})
+        r2 (new-run {:experiment "search"})]
+    (p/-create-run! store r1)
+    (p/-create-run! store r2)
+    (p/-log-metrics! store (:id r1) [{:key :accuracy :value 0.95 :step 0}])
+    (p/-log-metrics! store (:id r2) [{:key :accuracy :value 0.70 :step 0}])
+    (is (= 1 (count (p/-query-runs-by-metric store
+                                             {:experiment "search"
+                                              :metric-key :accuracy
+                                              :op :> :metric-value 0.9}))))))
+
+(deftest query-runs-sort-by-metric
+  (let [store (mem-store)
+        r1 (new-run {:experiment "sort"})
+        r2 (new-run {:experiment "sort"})]
+    (p/-create-run! store r1)
+    (p/-create-run! store r2)
+    (p/-log-metrics! store (:id r1) [{:key :accuracy :value 0.70 :step 0}])
+    (p/-log-metrics! store (:id r2) [{:key :accuracy :value 0.95 :step 0}])
+    (let [results (p/-query-runs-by-metric store
+                                           {:experiment "sort"
+                                            :sort-by-metric :accuracy
+                                            :sort-dir :desc})]
+      (is (= 2 (count results))))))
+
+;; --- Experiments (v0.4) ----------------------------------------------
+
+(deftest upsert-and-get-experiment
+  (let [store (mem-store)]
+    (p/-upsert-experiment! store {:name "test" :description "Test exp"
+                                  :owner "ci"})
+    (let [e (p/-get-experiment store "test")]
+      (is (= "test" (:name e)))
+      (is (= "Test exp" (:description e)))
+      (is (= "ci" (:owner e))))))
+
+(deftest list-experiments-returns-all
+  (let [store (mem-store)]
+    (p/-upsert-experiment! store {:name "a"})
+    (p/-upsert-experiment! store {:name "b"})
+    (is (= 2 (count (p/-list-experiments store))))))
+
 ;; --- Lifecycle / file-backed ------------------------------------------
 
 ;; --- Artifacts --------------------------------------------------------

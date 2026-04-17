@@ -55,7 +55,10 @@
                      s])]
                  [:button {:type "submit"
                            :class "bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700"}
-                  "Filter"]]]
+                  "Filter"]
+                 [:a {:href (str "/api/export?experiment=" (or current-experiment ""))
+                      :class "bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300"}
+                  "Export CSV"]]]
 
                [:div {:hx-get     (str "/runs?experiment=" (or current-experiment "")
                                        "&status=" (or current-status ""))
@@ -96,15 +99,30 @@
 
 ;; --- Run detail ------------------------------------------------------
 
+(defn- render-markdown
+  "Hiccup fragment that renders markdown text with KaTeX math support."
+  [dom-id text]
+  (when (and text (seq text))
+    [:div
+     [:div {:id dom-id :class "prose prose-sm max-w-none bg-white border rounded p-4 mt-2"} text]
+     [:script (str "document.getElementById('" dom-id "').innerHTML = "
+                   "marked.parse(document.getElementById('" dom-id "').textContent);"
+                   "renderMathInElement(document.getElementById('" dom-id "'), "
+                   "{delimiters: [{left: '$$', right: '$$', display: true},"
+                   "{left: '$', right: '$', display: false}]});")]]))
+
 (defn run-page
   "Full detail view for a single run."
   [{:keys [id experiment status start-time end-time error tags env
-           params metrics artifacts]
+           params metrics artifacts datasets]
     run-name :name}]
   (let [scalars    (filter #(= 1 (count (second %)))
                            (group-by :key metrics))
         timeseries (filter #(> (count (second %)) 1)
-                           (group-by :key metrics))]
+                           (group-by :key metrics))
+        note       (:note tags)
+        table-arts (filter #(= "application/x-chachaml-table" (:content-type %)) artifacts)
+        other-arts (remove #(= "application/x-chachaml-table" (:content-type %)) artifacts)]
     (layout/page (str "Run " (fmt/short-id id))
       ;; Header
                  [:div {:class "mb-6"}
@@ -173,8 +191,54 @@
                         (str "chart-" (name k))
                         (charts/metric-line-chart k (sort-by :step rows))))]])
 
-      ;; Artifacts
-                 (when (seq artifacts)
+      ;; Note (markdown + math)
+                 (when note
+                   [:div {:class "mb-6"}
+                    [:h2 {:class "text-lg font-semibold mb-2"} "Note"]
+                    (render-markdown "run-note" note)])
+
+      ;; Datasets
+                 (when (seq datasets)
+                   [:div {:class "mb-6"}
+                    [:h2 {:class "text-lg font-semibold mb-2"} "Datasets"]
+                    [:table {:class "w-full text-sm border-collapse"}
+                     [:thead [:tr {:class "border-b bg-gray-100"}
+                              [:th {:class "p-2 text-left"} "Role"]
+                              [:th {:class "p-2 text-left"} "Rows"]
+                              [:th {:class "p-2 text-left"} "Cols"]
+                              [:th {:class "p-2 text-left"} "Features"]
+                              [:th {:class "p-2 text-left"} "Hash"]
+                              [:th {:class "p-2 text-left"} "Source"]]]
+                     [:tbody
+                      (for [{:keys [role n-rows n-cols features source]
+                             ds-hash :hash} datasets]
+                        [:tr {:class "border-b"}
+                         [:td {:class "p-2"} (or role "—")]
+                         [:td {:class "p-2"} (or n-rows "—")]
+                         [:td {:class "p-2"} (or n-cols "—")]
+                         [:td {:class "p-2 font-mono text-xs"}
+                          (when features (pr-str features))]
+                         [:td {:class "p-2 font-mono text-xs text-gray-400"}
+                          (when ds-hash (fmt/short-id ds-hash))]
+                         [:td {:class "p-2 text-xs text-gray-500"}
+                          (or source "—")]])]]])
+
+      ;; Table artifacts (rendered inline)
+                 (when (seq table-arts)
+                   [:div {:class "mb-6"}
+                    [:h2 {:class "text-lg font-semibold mb-2"} "Tables"]
+                    (for [{art-name :name art-id :id} table-arts]
+                      [:div {:class "mb-4"}
+                       [:h3 {:class "text-sm font-medium text-gray-600"} art-name]
+                       ;; Table content loaded via HTMX
+                       [:div {:hx-get    (str "/api/artifacts/" art-id "/download")
+                              :hx-trigger "load"
+                              :hx-swap   "innerHTML"
+                              :class     "text-sm"}
+                        "Loading..."]])])
+
+      ;; Other artifacts
+                 (when (seq other-arts)
                    [:div {:class "mb-6"}
                     [:h2 {:class "text-lg font-semibold mb-2"} "Artifacts"]
                     [:table {:class "w-full text-sm border-collapse"}
@@ -186,7 +250,7 @@
                               [:th {:class "p-2 text-left"} ""]]]
                      [:tbody
                       (for [{art-name :name :keys [id size content-type]
-                             digest :hash} artifacts]
+                             digest :hash} other-arts]
                         [:tr {:class "border-b"}
                          [:td {:class "p-2 font-mono text-xs"} art-name]
                          [:td {:class "p-2"} (if size (fmt/size-str size) "—")]
@@ -196,12 +260,10 @@
                          [:td {:class "p-2"}
                           (when id
                             (cond
-                              ;; Image preview
                               (and content-type (re-find #"^image/" content-type))
                               [:img {:src (str "/api/artifacts/" id "/download")
                                      :class "max-h-20 rounded"
                                      :alt art-name}]
-                              ;; Download link for other types
                               :else
                               [:a {:href (str "/api/artifacts/" id "/download")
                                    :class "text-indigo-600 hover:underline text-xs"}
@@ -308,7 +370,7 @@
                [:div {:class "mb-6"}
                 [:h1 {:class "text-2xl font-bold mb-1"} model-name]
                 (when description
-                  [:p {:class "text-gray-500 mb-1"} description])
+                  (render-markdown (str "model-note-" model-name) description))
                 [:p {:class "text-xs text-gray-400"} (str "Created " (fmt/fmt-instant created-at))]]
                [:h2 {:class "text-lg font-semibold mb-2"} "Versions"]
                [:table {:class "w-full text-sm border-collapse"}
@@ -329,3 +391,85 @@
                       (fmt/short-id run-id)]]
                     [:td {:class "p-2 text-xs text-gray-500"} (or description "—")]
                     [:td {:class "p-2 text-xs text-gray-500"} (fmt/fmt-instant created-at)]])]]))
+
+;; --- Experiments page ------------------------------------------------
+
+(defn experiments-page
+  "List of experiments with metadata."
+  [experiments run-counts]
+  (layout/page "Experiments"
+               [:h1 {:class "text-2xl font-bold mb-4"} "Experiments"]
+               (if (empty? experiments)
+                 [:p {:class "text-gray-400"} "No experiments yet."]
+                 [:table {:class "w-full text-sm border-collapse"}
+                  [:thead [:tr {:class "border-b bg-gray-100"}
+                           [:th {:class "p-2 text-left"} "Name"]
+                           [:th {:class "p-2 text-left"} "Description"]
+                           [:th {:class "p-2 text-left"} "Owner"]
+                           [:th {:class "p-2 text-left"} "Runs"]
+                           [:th {:class "p-2 text-left"} "Created"]]]
+                  [:tbody
+                   (for [{:keys [description owner created-at]
+                          exp-name :name} experiments]
+                     [:tr {:class "border-b hover:bg-gray-50"}
+                      [:td {:class "p-2"}
+                       [:a {:href (str "/runs?experiment=" exp-name)
+                            :class "text-indigo-600 hover:underline font-medium"}
+                        exp-name]]
+                      [:td {:class "p-2 text-gray-500 text-xs"}
+                       (or description "—")]
+                      [:td {:class "p-2 text-xs"} (or owner "—")]
+                      [:td {:class "p-2"} (get run-counts exp-name 0)]
+                      [:td {:class "p-2 text-xs text-gray-500"}
+                       (when created-at (fmt/fmt-instant created-at))]])]])))
+
+;; --- Search page -----------------------------------------------------
+
+(defn search-page
+  "Search runs by metric values."
+  [results experiment-list params-map]
+  (layout/page "Search"
+               [:h1 {:class "text-2xl font-bold mb-4"} "Search Runs by Metric"]
+               [:form {:class "flex flex-wrap gap-2 mb-6" :method "get" :action "/search"}
+                [:select {:name "experiment" :class "border rounded px-2 py-1 text-sm"}
+                 [:option {:value ""} "All experiments"]
+                 (for [e experiment-list]
+                   [:option (cond-> {:value e}
+                              (= e (:experiment params-map)) (assoc :selected true))
+                    e])]
+                [:input {:name "metric_key" :type "text" :placeholder "metric key (e.g. accuracy)"
+                         :value (or (:metric-key params-map) "")
+                         :class "border rounded px-2 py-1 text-sm w-40"}]
+                [:select {:name "op" :class "border rounded px-2 py-1 text-sm"}
+                 (for [o ["> >= < <= ="]]
+                   [:option (cond-> {:value o}
+                              (= o (str (:op params-map))) (assoc :selected true))
+                    o])]
+                [:input {:name "metric_value" :type "number" :step "any"
+                         :placeholder "value"
+                         :value (or (:metric-value params-map) "")
+                         :class "border rounded px-2 py-1 text-sm w-24"}]
+                [:button {:type "submit"
+                          :class "bg-indigo-600 text-white px-3 py-1 rounded text-sm"}
+                 "Search"]]
+               (if results
+                 (if (empty? results)
+                   [:p {:class "text-gray-400"} "No matching runs."]
+                   [:table {:class "w-full text-sm border-collapse"}
+                    [:thead [:tr {:class "border-b bg-gray-100"}
+                             [:th {:class "p-2 text-left"} "ID"]
+                             [:th {:class "p-2 text-left"} "Experiment"]
+                             [:th {:class "p-2 text-left"} "Status"]
+                             [:th {:class "p-2 text-left"} "Started"]]]
+                    [:tbody
+                     (for [{:keys [id experiment status start-time]} results]
+                       [:tr {:class "border-b hover:bg-gray-50"}
+                        [:td {:class "p-2"}
+                         [:a {:href (str "/runs/" id)
+                              :class "text-indigo-600 hover:underline font-mono text-xs"}
+                          (fmt/short-id id)]]
+                        [:td {:class "p-2"} experiment]
+                        [:td {:class "p-2"} (status-badge status)]
+                        [:td {:class "p-2 text-xs text-gray-500"}
+                         (fmt/fmt-instant start-time)]])]])
+                 [:p {:class "text-gray-400"} "Enter search criteria above."])))

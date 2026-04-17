@@ -180,3 +180,61 @@
 (deftest static-js-served
   (let [resp ((handler) (mock/request :get "/js/htmx.min.js"))]
     (is (= 200 (:status resp)))))
+
+;; --- v0.4 pages + endpoints -----------------------------------------
+
+(deftest experiments-page-renders
+  (ml/create-experiment! "exp-test" {:description "Test experiment"})
+  (ml/with-run {:experiment "exp-test"})
+  (let [resp (get-html "/experiments")]
+    (is (= 200 (:status resp)))
+    (is (str/includes? (:body resp) "exp-test"))))
+
+(deftest search-page-renders
+  (let [resp (get-html "/search")]
+    (is (= 200 (:status resp)))
+    (is (str/includes? (:body resp) "Search"))))
+
+(deftest search-page-with-results
+  (ml/with-run {:experiment "search-test"}
+    (ml/log-metric :accuracy 0.95))
+  (let [resp (get-html "/search?metric_key=accuracy&op=%3E&metric_value=0.9")]
+    (is (= 200 (:status resp)))
+    (is (str/includes? (:body resp) "search-test"))))
+
+(deftest api-tags-crud
+  (let [rid (atom nil)]
+    (ml/with-run {} (reset! rid (:id (ctx/current-run))))
+    ;; Add tag via POST
+    (let [resp ((handler)
+                (-> (mock/request :post (str "/api/tags/" @rid))
+                    (mock/content-type "application/json")
+                    (mock/body "{\"key\":\"quality\",\"value\":\"good\"}")))]
+      (is (= 200 (:status resp))))
+    ;; Read tags via GET
+    (let [{:keys [status parsed]} (get-json (str "/api/tags/" @rid))]
+      (is (= 200 status))
+      (is (= "good" (:quality parsed))))))
+
+(deftest api-datasets
+  (let [rid (atom nil)]
+    (ml/with-run {}
+      (reset! rid (:id (ctx/current-run)))
+      (ml/log-dataset! {:role "train" :n-rows 100}))
+    (let [{:keys [status parsed]} (get-json (str "/api/datasets/" @rid))]
+      (is (= 200 status))
+      (is (= 1 (count parsed))))))
+
+(deftest api-search
+  (ml/with-run {:experiment "api-search"}
+    (ml/log-metric :accuracy 0.95))
+  (let [{:keys [status parsed]}
+        (get-json "/api/search?metric_key=accuracy&op=%3E&metric_value=0.9")]
+    (is (= 200 status))
+    (is (pos? (count parsed)))))
+
+(deftest export-csv-downloads
+  (ml/with-run {:experiment "csv"} (ml/log-params {:lr 0.01}))
+  (let [resp ((handler) (mock/request :get "/api/export?experiment=csv"))]
+    (is (= 200 (:status resp)))
+    (is (str/includes? (get-in resp [:headers "Content-Type"]) "text/csv"))))

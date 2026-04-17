@@ -32,6 +32,8 @@
       [:nav {:class "bg-indigo-700 text-white px-6 py-3 flex items-center gap-6 shadow"}
        [:a {:href "/" :class "font-bold text-lg"} "chachaml"]
        [:a {:href "/runs" :class "hover:underline"} "Runs"]
-       [:a {:href "/models" :class "hover:underline"} "Models"]]
+       [:a {:href "/models" :class "hover:underline"} "Models"]
+       [:a {:href "/experiments" :class "hover:underline"} "Experiments"]
+       [:a {:href "/search" :class "hover:underline"} "Search"]]
       [:main {:class "max-w-7xl mx-auto px-4 py-6"}
        body]]])))
