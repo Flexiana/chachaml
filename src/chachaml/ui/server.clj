@@ -21,7 +21,8 @@
             [clojure.string :as str]
             [reitit.ring :as reitit]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.params :refer [wrap-params]]))
+            [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.resource :refer [wrap-resource]]))
 
 ;; --- HTML handlers ---------------------------------------------------
 
@@ -103,6 +104,7 @@
   (-> (reitit/ring-handler
        (reitit/router routes)
        (reitit/create-default-handler))
+      (wrap-resource "public")
       wrap-params))
 
 ;; --- Lifecycle -------------------------------------------------------

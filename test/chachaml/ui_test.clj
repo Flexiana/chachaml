@@ -174,3 +174,9 @@
 
 (deftest api-model-404
   (is (= 404 (:status (get-json "/api/models/no-such")))))
+
+;; --- Static assets ---------------------------------------------------
+
+(deftest static-js-served
+  (let [resp ((handler) (mock/request :get "/js/htmx.min.js"))]
+    (is (= 200 (:status resp)))))

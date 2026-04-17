@@ -18,16 +18,12 @@
       [:meta {:charset "utf-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
       [:title (str title " — chachaml")]
-      ;; Tailwind via CDN (no build step)
-      [:script {:src "https://cdn.tailwindcss.com"}]
-      ;; HTMX
-      [:script {:src "https://unpkg.com/htmx.org@2.0.4"
-                :integrity "sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
-                :crossorigin "anonymous"}]
-      ;; Vega-Lite for metric charts
-      [:script {:src "https://cdn.jsdelivr.net/npm/vega@5"}]
-      [:script {:src "https://cdn.jsdelivr.net/npm/vega-lite@5"}]
-      [:script {:src "https://cdn.jsdelivr.net/npm/vega-embed@6"}]]
+      ;; All JS deps served locally from resources/public/js/
+      [:script {:src "/js/tailwind.js"}]
+      [:script {:src "/js/htmx.min.js"}]
+      [:script {:src "/js/vega.min.js"}]
+      [:script {:src "/js/vega-lite.min.js"}]
+      [:script {:src "/js/vega-embed.min.js"}]]
      [:body {:class "bg-gray-50 text-gray-900 min-h-screen"}
       [:nav {:class "bg-indigo-700 text-white px-6 py-3 flex items-center gap-6 shadow"}
        [:a {:href "/" :class "font-bold text-lg"} "chachaml"]
