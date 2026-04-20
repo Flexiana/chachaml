@@ -16,32 +16,34 @@
 ;; Data generation utilities
 ;; =====================================================================
 
-(def ^:private rng (Random. 42))
+(def ^:private ^:dynamic *rng* (Random. 42))
 
-(defn- gauss [] (.nextGaussian ^Random rng))
-(defn- rand-val [] (.nextDouble ^Random rng))
+(defn- gauss [] (.nextGaussian ^Random *rng*))
+(defn- rand-val [] (.nextDouble ^Random *rng*))
 
 (defn- gen-blobs
   "Generate `n` points per class in `d` dimensions around random centers.
   Default spread=1.5 produces overlapping clusters for realistic accuracy."
-  [n-per-class n-classes d & {:keys [spread] :or {spread 1.5}}]
-  (let [centers (vec (repeatedly n-classes
-                                 #(vec (repeatedly d (fn [] (* 2.0 (gauss)))))))]
-    {:X (vec (mapcat (fn [c]
-                       (repeatedly n-per-class
-                                   #(mapv (fn [ci] (+ ci (* spread (gauss)))) c)))
-                     centers))
-     :y (vec (mapcat (fn [i] (repeat n-per-class i)) (range n-classes)))
-     :centers centers}))
+  [n-per-class n-classes d & {:keys [spread seed] :or {spread 1.5 seed 42}}]
+  (binding [*rng* (Random. seed)]
+    (let [centers (vec (repeatedly n-classes
+                                   #(vec (repeatedly d (fn [] (* 2.0 (gauss)))))))]
+      {:X (vec (mapcat (fn [c]
+                         (repeatedly n-per-class
+                                     #(mapv (fn [ci] (+ ci (* spread (gauss)))) c)))
+                       centers))
+       :y (vec (mapcat (fn [i] (repeat n-per-class i)) (range n-classes)))
+       :centers centers})))
 
 (defn- gen-regression
   "Generate y = w·x + b + noise."
-  [n d & {:keys [noise] :or {noise 0.3}}]
-  (let [true-w (vec (repeatedly d #(* 3.0 (gauss))))
-        true-b (* 2.0 (gauss))
-        X (vec (repeatedly n #(vec (repeatedly d gauss))))
-        y (mapv (fn [x] (+ (reduce + (map * true-w x)) true-b (* noise (gauss)))) X)]
-    {:X X :y y :true-w true-w :true-b true-b}))
+  [n d & {:keys [noise seed] :or {noise 0.3 seed 42}}]
+  (binding [*rng* (Random. seed)]
+    (let [true-w (vec (repeatedly d #(* 3.0 (gauss))))
+          true-b (* 2.0 (gauss))
+          X (vec (repeatedly n #(vec (repeatedly d gauss))))
+          y (mapv (fn [x] (+ (reduce + (map * true-w x)) true-b (* noise (gauss)))) X)]
+      {:X X :y y :true-w true-w :true-b true-b})))
 
 (defn- train-test-split [X y ratio]
   (let [n     (count X)
@@ -88,7 +90,7 @@
 ;; =====================================================================
 
 (defn uc01-binary-classification []
-  (let [{:keys [X y]} (gen-blobs 80 2 3)
+  (let [{:keys [X y]} (gen-blobs 80 2 3 :seed 100)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "01-binary-classification"
                   :tags {:category "classification"}}
@@ -127,7 +129,7 @@
 ;; =====================================================================
 
 (defn uc02-multiclass-classification []
-  (let [{:keys [X y]} (gen-blobs 50 3 4)
+  (let [{:keys [X y]} (gen-blobs 50 3 4 :seed 200)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "02-multiclass"
                   :tags {:category "classification"}}
@@ -185,7 +187,7 @@
                                (* (/ (count right-y) (double n)) (gini right-y)))}))))))
 
 (defn uc03-decision-stump []
-  (let [{:keys [X y]} (gen-blobs 60 2 2)
+  (let [{:keys [X y]} (gen-blobs 60 2 2 :seed 300)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "03-decision-stump"
                   :tags {:category "classification"}}
@@ -211,7 +213,7 @@
 ;; =====================================================================
 
 (defn uc04-random-forest []
-  (let [{:keys [X y]} (gen-blobs 80 2 3)
+  (let [{:keys [X y]} (gen-blobs 80 2 3 :seed 400)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         n-trees 10]
     (ml/with-run {:experiment "04-random-forest"
@@ -252,7 +254,7 @@
   (Math/sqrt (reduce + (map (fn [ai bi] (let [d (- ai bi)] (* d d))) a b))))
 
 (defn uc05-knn []
-  (let [{:keys [X y]} (gen-blobs 60 3 2)
+  (let [{:keys [X y]} (gen-blobs 60 3 2 :seed 500)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         k 5]
     (ml/with-run {:experiment "05-knn"
@@ -276,7 +278,7 @@
 ;; =====================================================================
 
 (defn uc06-naive-bayes []
-  (let [{:keys [X y]} (gen-blobs 80 3 3)
+  (let [{:keys [X y]} (gen-blobs 80 3 3 :seed 600)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         classes (distinct ytr)]
     (ml/with-run {:experiment "06-naive-bayes"
@@ -317,7 +319,7 @@
 ;; =====================================================================
 
 (defn uc07-svm []
-  (let [{:keys [X y]} (gen-blobs 80 2 3)
+  (let [{:keys [X y]} (gen-blobs 80 2 3 :seed 700)
         y-svm (mapv #(if (= % 0) -1 1) y)
         [Xtr Xte ytr yte] (train-test-split X y-svm 0.8)]
     (ml/with-run {:experiment "07-svm"
@@ -344,7 +346,7 @@
 ;; =====================================================================
 
 (defn uc08-linear-regression []
-  (let [{:keys [X y true-w true-b]} (gen-regression 150 3)
+  (let [{:keys [X y true-w true-b]} (gen-regression 150 3 :seed 800)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "08-linear-regression"
                   :tags {:category "regression"}}
@@ -404,7 +406,7 @@
 ;; =====================================================================
 
 (defn uc10-ridge-regression []
-  (let [{:keys [X y]} (gen-regression 120 4)
+  (let [{:keys [X y]} (gen-regression 120 4 :seed 1000)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "10-ridge-regression"
                   :tags {:category "regression"}}
@@ -435,7 +437,7 @@
 ;; =====================================================================
 
 (defn uc11-lasso []
-  (let [{:keys [X y]} (gen-regression 100 6 :noise 0.1)
+  (let [{:keys [X y]} (gen-regression 100 6 :noise 0.1 :seed 1100)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         lambda 0.5]
     (ml/with-run {:experiment "11-lasso"
@@ -475,7 +477,7 @@
 ;; =====================================================================
 
 (defn uc12-decision-tree-regression []
-  (let [{:keys [X y]} (gen-regression 100 2)
+  (let [{:keys [X y]} (gen-regression 100 2 :seed 1200)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "12-decision-tree-regression"
                   :tags {:category "regression"}}
@@ -524,7 +526,7 @@
 ;; =====================================================================
 
 (defn uc13-kmeans []
-  (let [{:keys [X]} (gen-blobs 60 3 2 :spread 0.5)
+  (let [{:keys [X]} (gen-blobs 60 3 2 :spread 0.5 :seed 1300)
         k 3]
     (ml/with-run {:experiment "13-kmeans" :tags {:category "clustering"}}
       (ml/log-params {:algorithm "kmeans-lloyd" :k k :max-iter 30})
@@ -563,7 +565,7 @@
 ;; =====================================================================
 
 (defn uc14-dbscan []
-  (let [{:keys [X]} (gen-blobs 40 3 2 :spread 0.3)
+  (let [{:keys [X]} (gen-blobs 40 3 2 :spread 0.3 :seed 1400)
         X (into X (repeatedly 10 #(vector (* 10 (gauss)) (* 10 (gauss))))) ;; noise
         eps 2.0
         min-pts 3]
@@ -605,7 +607,7 @@
 ;; =====================================================================
 
 (defn uc15-pca []
-  (let [{:keys [X]} (gen-blobs 100 2 5 :spread 2.0)
+  (let [{:keys [X]} (gen-blobs 100 2 5 :spread 2.0 :seed 1500)
         n (count X) d 5
         ;; Center the data
         means (mapv (fn [j] (/ (reduce + (map #(nth % j) X)) n)) (range d))
@@ -692,7 +694,7 @@
   (ml/create-experiment! "17-cross-validation"
                          {:description "K-fold CV with logistic regression"
                           :owner "showcase"})
-  (let [{:keys [X y]} (gen-blobs 100 2 3)
+  (let [{:keys [X y]} (gen-blobs 100 2 3 :seed 1700)
         k-folds 5
         fold-size (quot (count X) k-folds)]
     (ml/with-run {:experiment "17-cross-validation"
@@ -731,7 +733,7 @@
 ;; =====================================================================
 
 (defn uc18-grid-search []
-  (let [{:keys [X y]} (gen-blobs 80 2 3)
+  (let [{:keys [X y]} (gen-blobs 80 2 3 :seed 1800)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "18-grid-search"
                   :tags {:category "model-management"}}
@@ -766,7 +768,7 @@
 ;; =====================================================================
 
 (defn uc19-model-comparison []
-  (let [{:keys [X y]} (gen-blobs 80 2 3)
+  (let [{:keys [X y]} (gen-blobs 80 2 3 :seed 1900)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)]
     (ml/with-run {:experiment "19-model-comparison"
                   :tags {:category "model-management"}}
@@ -819,7 +821,7 @@
 ;; =====================================================================
 
 (defn uc20-ensemble-voting []
-  (let [{:keys [X y]} (gen-blobs 80 2 3)
+  (let [{:keys [X y]} (gen-blobs 80 2 3 :seed 2000)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         ytr-bin (mapv #(if (zero? %) 0 1) ytr)
         yte-bin (mapv #(if (zero? %) 0 1) yte)]
@@ -855,7 +857,7 @@
 ;; =====================================================================
 
 (defn uc21-feature-importance []
-  (let [{:keys [X y]} (gen-blobs 80 2 4)
+  (let [{:keys [X y]} (gen-blobs 80 2 4 :seed 2100)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         ytr-bin (mapv #(if (zero? %) 0 1) ytr)
         yte-bin (mapv #(if (zero? %) 0 1) yte)
@@ -1035,7 +1037,7 @@
 ;; =====================================================================
 
 (defn uc25-ab-evaluation []
-  (let [{:keys [X y]} (gen-blobs 100 2 3)
+  (let [{:keys [X y]} (gen-blobs 100 2 3 :seed 2500)
         [Xtr Xte ytr yte] (train-test-split X y 0.8)
         ytr-bin (mapv #(if (zero? %) 0 1) ytr)
         yte-bin (mapv #(if (zero? %) 0 1) yte)

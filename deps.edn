@@ -55,7 +55,10 @@
                              "-e" "chachaml.ui.layout"
                              "-e" "chachaml.ui.views"
                              "-e" "chachaml.ui.charts"
-                             "-e" "chachaml.interop.sklearn"]}
+                             "-e" "chachaml.interop.sklearn"
+                             "-e" "chachaml.store.postgres"
+                             "-e" "chachaml.chat"
+                             "-e" "chachaml.store"]}
 
   :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
                :ns-default build}
