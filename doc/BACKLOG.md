@@ -115,11 +115,53 @@ explicitly inside the body.
 - [x] `examples/sklearn_iris.clj` (runnable with Python + sklearn)
 - [x] 8 mock-based tests
 
-## Deferred (post-v0.3)
-- Pipelines / DAG
-- Postgres / S3 backends
-- Drift detection, alerts
-- Skills, OpenAI-compatible endpoint
+## M10 — Pipelines (v0.5)
+
+- [x] `chachaml.pipeline/run-pipeline!` — named step sequences, each
+  step tracked as a `with-run`, results chain via `:prev-result`
+- [x] `defpipeline` macro for reusable definitions
+- [x] `pipelines`, `pipeline` queries
+- [x] `pipelines` + `pipeline_steps` tables
+- [x] 6 pipeline tests
+
+## M11 — Drift detection + alerts (v0.5)
+
+- [x] `chachaml.alerts/set-alert!` with metric threshold rules
+- [x] `check-alerts!` evaluates active alerts against latest runs
+- [x] `alert-history`, `deactivate-alert!`
+- [x] `alerts` + `alert_events` tables
+- [x] 5 alert tests
+
+## M12 — Chat-with-data (v0.5)
+
+- [x] `chachaml.chat/ask` sends questions to Anthropic/OpenAI with
+  chachaml tools injected
+- [x] Tool-use loop: LLM calls tools, gets results, formulates answer
+- [x] `/chat` UI page with provider selector, localStorage API key
+- [x] `POST /api/chat` endpoint
+
+## M13 — Postgres backend (v0.5)
+
+- [x] `chachaml.store.postgres` — full implementation of RunStore,
+  ArtifactStore, ModelRegistry with HikariCP connection pool
+- [x] `chachaml.store/open` dispatcher: `:type :sqlite` or `:type :postgres`
+- [x] `:postgres` deps alias (postgresql driver + HikariCP)
+- [x] Same schema, same map shapes as SQLite — swap backends without
+  changing application code
+
+## M15 — User attribution (v0.5)
+
+- [x] `created_by` column on runs, auto-captured from system user
+- [x] Filterable: `(runs {:created-by "maria"})`
+- [x] Visible in UI runs table
+
+## Remaining (post-v0.5)
+
+- Docker image + docker-compose (M16)
+- HTTP write API for non-Clojure clients (M17)
+- S3 artifact storage (M14)
+- Slack webhook for alerts (M18)
+- Run cleanup / retention policy (M19)
 
 ## Acceptance criteria per milestone
 

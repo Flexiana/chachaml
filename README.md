@@ -363,6 +363,40 @@ clojure -M:python:examples -m sklearn-iris
 
 The 25 use cases cover: binary/multiclass classification, regression variants (linear, polynomial, ridge, lasso), clustering (k-means, DBSCAN), PCA, anomaly detection, cross-validation, hyperparameter grid search, model comparison, ensemble voting, feature importance, time series, text classification, recommendation, and A/B testing.
 
+### Postgres backend (team use)
+
+For teams, switch from SQLite to a shared Postgres instance:
+
+```clojure
+(require '[chachaml.store :as store])
+
+;; Connect to shared Postgres (add :postgres alias to your deps)
+(ml/use-store! (store/open {:type     :postgres
+                            :jdbc-url "jdbc:postgresql://team-db:5432/chachaml"
+                            :username "chachaml"
+                            :password "secret"}))
+
+;; Everything else is identical — same API, shared state
+(ml/with-run {:experiment "iris"} ...)
+```
+
+HikariCP connection pool included. Same schema, same map shapes — swap backends without changing application code.
+
+### User attribution
+
+Runs automatically capture who created them:
+
+```clojure
+(ml/with-run {:experiment "iris"} ...)
+(:created-by (ml/last-run))
+;; => "maria"   (auto-captured from system user)
+
+;; Filter by person
+(ml/runs {:created-by "tomas"})
+```
+
+Override with `:created-by` in `start-run!` opts if needed.
+
 ## Architecture
 
 ```
@@ -373,12 +407,13 @@ chachaml.ui.{server,api,views,charts,layout}              ← web UI
 chachaml.interop.sklearn                                  ← Python bridge (optional)
 chachaml.format + repl                                    ← shared formatting + REPL
 chachaml.context + serialize + env + schema               ← infra
-chachaml.store.{protocol,sqlite}                          ← storage (SQLite + WAL)
+chachaml.store.{protocol,sqlite,postgres}                 ← storage (SQLite or Postgres)
+chachaml.store                                            ← backend dispatcher
 ```
 
-**Storage**: SQLite (WAL mode for concurrent access). Artifact bytes on the filesystem. No external services required.
+**Storage**: SQLite (default, WAL mode) or Postgres (for teams). Artifact bytes on the filesystem. Dispatch via `(chachaml.store/open {:type :sqlite})` or `{:type :postgres}`.
 
-**Concurrency**: multiple agents/REPLs can write to the same DB simultaneously. The UI reads without blocking writers.
+**Concurrency**: multiple agents/REPLs can write simultaneously. SQLite uses WAL mode; Postgres uses connection pooling. The UI reads without blocking writers.
 
 ## Development
 
@@ -397,14 +432,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the quality bar, code conventions, an
 
 ## Status
 
-202 tests / 471 assertions. Coverage 85%+ forms / 94%+ lines.
+202 tests / 471 assertions. Coverage 85%+ forms / 93%+ lines.
 
 | Version | What shipped |
 |---|---|
 | v0.1.0 | Core tracking, artifacts, model registry, deftracked, REPL helpers |
 | v0.2.0 | MCP server (6 tools), web UI (5 pages), SQLite WAL |
 | v0.3.0 | sklearn interop, 25 ML use case showcase |
-| v0.4.0 | Tags, datasets, search, batch metrics, tables, export, experiments, notes, alerts, pipelines, chat-with-data, 16 MCP tools, 8 UI pages |
+| v0.4.0 | Tags, datasets, search, batch metrics, tables, export, experiments, markdown notes, 16 MCP tools, 8 UI pages |
+| v0.5.0 | Postgres backend, user attribution, pipelines, alerts, chat-with-data, store dispatcher |
 
 ## License
 

@@ -7,8 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.5.0] - 2026-04-20
+
+Team readiness: Postgres backend, user attribution, pipelines, alerts,
+chat-with-data.
+
 ### Added
 
+- **M10 Pipelines** (`chachaml.pipeline`): `run-pipeline!` executes
+  named step sequences, each step tracked as a `with-run`. Results
+  chain via `:prev-result`. `defpipeline` macro. `pipelines` +
+  `pipeline_steps` tables.
+- **M11 Alerts** (`chachaml.alerts`): `set-alert!` defines metric
+  threshold rules, `check-alerts!` evaluates against latest runs,
+  records triggered events. `alert-history`, `deactivate-alert!`.
+- **M12 Chat-with-data** (`chachaml.chat`): `ask` sends questions to
+  Anthropic/OpenAI API with chachaml tools injected. Tool-use loop.
+  `/chat` UI page with provider selector and localStorage API key.
+- **M13 Postgres backend** (`chachaml.store.postgres`): full protocol
+  implementation with HikariCP pool. Same API as SQLite, team-shared
+  database. `chachaml.store/open` dispatcher: `:type :sqlite` or
+  `:type :postgres`. `:postgres` deps alias.
+- **M15 User attribution**: `created_by` column on runs, auto-captured
+  from system user, filterable in queries and visible in UI.
 - **Markdown notes with math**: runs and models support markdown
   notes rendered via marked.js + KaTeX. `set-note!` stores markdown;
   the UI renders it with LaTeX math support. `set-model-note!` added
