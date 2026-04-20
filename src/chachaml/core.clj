@@ -76,6 +76,7 @@
          parent (or (:parent-run-id opts)
                     (some-> (ctx/current-run) :id))
          user   (or (:created-by opts)
+                    (System/getenv "CHACHA_USER")
                     (System/getProperty "user.name"))
          run    {:id            (new-run-id)
                  :experiment    (or (:experiment opts) "default")
@@ -252,11 +253,30 @@
    (when (seq filters) (schema/validate schema/QueryFilters filters))
    (p/-query-runs (ctx/current-store) filters)))
 
+(defn current-user
+  "Return the current chachaml user identity. Checks in order:
+  1. `CHACHA_USER` env var
+  2. JVM `user.name` system property"
+  []
+  (or (System/getenv "CHACHA_USER")
+      (System/getProperty "user.name")))
+
 (defn last-run
   "Return the most recently started run (across all experiments), or nil
   if no runs exist. Equivalent to `(first (runs {:limit 1}))`."
   []
   (first (runs {:limit 1})))
+
+(defn my-last-run
+  "Return the most recent run created by the current user."
+  []
+  (first (runs {:created-by (current-user) :limit 1})))
+
+(defn my-runs
+  "List runs created by the current user, most recent first."
+  ([] (my-runs {}))
+  ([filters]
+   (runs (assoc filters :created-by (current-user)))))
 
 ;; --- Mutable tags / notes --------------------------------------------
 
