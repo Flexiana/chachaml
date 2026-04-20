@@ -181,3 +181,95 @@
     (if-let [diff (reg/diff-versions model-name (parse-long v1-str) (parse-long v2-str))]
       (json-response diff)
       {:status 404 :body "Versions not found"})))
+
+;; === Write API (M17) — for non-Clojure clients =======================
+;;
+;; These endpoints let Python, Go, curl, etc. create and update runs
+;; via HTTP. The Clojure library writes directly via JDBC; these are
+;; the HTTP equivalent.
+
+(defn- read-json-body
+  "Parse JSON request body into a Clojure map with keyword keys."
+  [request]
+  (json/read-str (slurp (:body request)) :key-fn keyword))
+
+(defn start-run-handler
+  "POST /api/w/runs — start a new run.
+
+  JSON body: `{\"experiment\":\"...\",\"name\":\"...\",\"tags\":{...}}`
+  Returns the run map with `:id`."
+  [request]
+  (let [body (read-json-body request)
+        run  (ml/start-run! (cond-> {}
+                              (:experiment body) (assoc :experiment (:experiment body))
+                              (:name body)       (assoc :name (:name body))
+                              (:tags body)       (assoc :tags (:tags body))
+                              (:created_by body) (assoc :created-by (:created_by body))))]
+    (json-response run)))
+
+(defn log-params-handler
+  "POST /api/w/runs/:id/params — log params on a run.
+
+  JSON body: `{\"lr\":0.01,\"epochs\":100}`"
+  [request]
+  (let [run-id (get-in request [:path-params :id])
+        params (read-json-body request)]
+    (binding [ctx/*run* {:id run-id}]
+      (ml/log-params params))
+    (json-response {:ok true})))
+
+(defn log-metrics-handler
+  "POST /api/w/runs/:id/metrics — log metrics on a run.
+
+  JSON body: `{\"accuracy\":0.94,\"loss\":0.3}` or with step:
+  `{\"metrics\":{\"loss\":0.3},\"step\":5}`"
+  [request]
+  (let [run-id (get-in request [:path-params :id])
+        body   (read-json-body request)
+        step   (or (:step body) 0)
+        metrics (or (:metrics body) (dissoc body :step))]
+    (binding [ctx/*run* {:id run-id}]
+      (ml/log-metrics metrics {:step step}))
+    (json-response {:ok true})))
+
+(defn end-run-handler
+  "POST /api/w/runs/:id/end — end a run.
+
+  JSON body: `{\"status\":\"completed\"}` or `{\"status\":\"failed\",\"error\":\"...\"}`"
+  [request]
+  (let [run-id  (get-in request [:path-params :id])
+        body    (read-json-body request)
+        status  (keyword (or (:status body) "completed"))
+        error   (:error body)
+        updated (ml/end-run! run-id status error)]
+    (json-response updated)))
+
+(defn log-artifact-handler
+  "POST /api/w/runs/:id/artifacts — log an artifact (JSON value, nippy-serialized).
+
+  JSON body: `{\"name\":\"model\",\"value\":{...}}` or
+  `{\"name\":\"config\",\"value\":{...},\"format\":\"edn\"}`"
+  [request]
+  (let [run-id (get-in request [:path-params :id])
+        body   (read-json-body request)
+        opts   (cond-> {}
+                 (:format body) (assoc :format (keyword (:format body))))]
+    (binding [ctx/*run* {:id run-id}]
+      (let [art (ml/log-artifact (:name body) (:value body) opts)]
+        (json-response art)))))
+
+(defn register-model-handler
+  "POST /api/w/models — register a model version.
+
+  JSON body: `{\"model_name\":\"iris\",\"run_id\":\"...\",
+               \"artifact\":\"model\",\"stage\":\"staging\"}`"
+  [request]
+  (let [body (read-json-body request)]
+    (binding [ctx/*run* {:id (:run_id body)}]
+      (let [version (reg/register-model
+                     (:model_name body)
+                     (cond-> {:artifact (:artifact body)}
+                       (:stage body)       (assoc :stage (keyword (:stage body)))
+                       (:description body) (assoc :description (:description body))
+                       (:run_id body)      (assoc :run-id (:run_id body))))]
+        (json-response version)))))

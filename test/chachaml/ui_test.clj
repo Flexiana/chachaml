@@ -181,6 +181,57 @@
   (let [resp ((handler) (mock/request :get "/js/htmx.min.js"))]
     (is (= 200 (:status resp)))))
 
+;; --- Write API (M17) -------------------------------------------------
+
+(defn- post-json [path body]
+  ((handler)
+   (-> (mock/request :post path)
+       (mock/content-type "application/json")
+       (mock/body (json/write-str body)))))
+
+(deftest write-api-full-lifecycle
+  (let [;; 1. Start a run
+        start-resp (post-json "/api/w/runs"
+                              {:experiment "write-test" :name "api-run"})
+        run        (json/read-str (:body start-resp) :key-fn keyword)
+        run-id     (:id run)]
+    (is (= 200 (:status start-resp)))
+    (is (some? run-id))
+    (is (= "write-test" (:experiment run)))
+
+    ;; 2. Log params
+    (let [resp (post-json (str "/api/w/runs/" run-id "/params")
+                          {:lr 0.01 :epochs 50})]
+      (is (= 200 (:status resp))))
+
+    ;; 3. Log metrics
+    (let [resp (post-json (str "/api/w/runs/" run-id "/metrics")
+                          {:accuracy 0.94})]
+      (is (= 200 (:status resp))))
+
+    ;; 4. Log metrics with step
+    (let [resp (post-json (str "/api/w/runs/" run-id "/metrics")
+                          {:metrics {:loss 0.3} :step 5})]
+      (is (= 200 (:status resp))))
+
+    ;; 5. Log artifact
+    (let [resp (post-json (str "/api/w/runs/" run-id "/artifacts")
+                          {:name "model" :value {:weights [1 2 3]}})]
+      (is (= 200 (:status resp))))
+
+    ;; 6. End the run
+    (let [resp (post-json (str "/api/w/runs/" run-id "/end")
+                          {:status "completed"})
+          body (json/read-str (:body resp) :key-fn keyword)]
+      (is (= 200 (:status resp)))
+      (is (= "completed" (name (:status body)))))
+
+    ;; 7. Verify via read API
+    (let [{:keys [parsed]} (get-json (str "/api/runs/" run-id))]
+      (is (= 0.01 (get-in parsed [:params :lr])))
+      (is (= 2 (count (:metrics parsed))))
+      (is (= 1 (count (:artifacts parsed)))))))
+
 ;; --- v0.4 pages + endpoints -----------------------------------------
 
 (deftest experiments-page-renders

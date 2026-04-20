@@ -15,7 +15,6 @@
             [chachaml.core :as ml]
             [chachaml.registry :as reg]
             [chachaml.repl :as repl]
-            [chachaml.store.sqlite :as sqlite]
             [chachaml.ui.api :as api]
             [chachaml.ui.views :as views]
             [clojure.string :as str]
@@ -147,6 +146,13 @@
    ["/api/model-note/:name" {:post {:handler api/set-model-note-handler}}]
    ["/api/diff/:name/:v1/:v2" {:get {:handler api/diff-versions-handler}}]
    ["/api/chat" {:post {:handler api/chat-handler}}]
+   ;; Write API (for non-Clojure clients)
+   ["/api/w/runs" {:post {:handler api/start-run-handler}}]
+   ["/api/w/runs/:id/params" {:post {:handler api/log-params-handler}}]
+   ["/api/w/runs/:id/metrics" {:post {:handler api/log-metrics-handler}}]
+   ["/api/w/runs/:id/end" {:post {:handler api/end-run-handler}}]
+   ["/api/w/runs/:id/artifacts" {:post {:handler api/log-artifact-handler}}]
+   ["/api/w/models" {:post {:handler api/register-model-handler}}]
    ["/chat" {:get {:handler chat-page-handler}}]])
 
 (defn app
@@ -166,21 +172,37 @@
   `.stop` to shut down).
 
   Options:
-  - `:path`  SQLite DB path (default `\"chachaml.db\"`)
   - `:port`  HTTP port (default `8080`)
-  - `:join?` Block the calling thread (default `false`)"
+  - `:join?` Block the calling thread (default `false`)
+  - `:path`  SQLite DB path (shorthand, default `\"chachaml.db\"`)
+  - `:type`  `:sqlite` or `:postgres` (for team use)
+  - Plus any keys accepted by `chachaml.store/open` (`:jdbc-url`,
+    `:username`, `:password`, `:artifact-dir`, etc.)"
   ([] (start! {}))
-  ([{:keys [path port join?]
-     :or   {path "chachaml.db" port 8080 join? false}}]
-   (let [store (sqlite/open {:path path})]
+  ([{:keys [port join?] :or {port 8080 join? false} :as opts}]
+   (let [store-fn (requiring-resolve 'chachaml.store/open)
+         store    (store-fn (dissoc opts :port :join?))]
      (alter-var-root #'ctx/*store* (constantly store))
      (println (str "[chachaml-ui] http://localhost:" port
-                   "  (store: " path ")"))
+                   "  (store type: " (or (:type opts) "sqlite") ")"))
      (jetty/run-jetty (app) {:port port :join? join?}))))
 
 (defn -main
-  "CLI entry: `clojure -M:ui [db-path] [port]`."
+  "CLI entry: `clojure -M:ui [db-path] [port]`.
+
+  For Postgres, set env vars DB_TYPE=postgres, JDBC_URL, DB_USER,
+  DB_PASSWORD instead of passing args."
   [& args]
-  (let [path (or (first args) "chachaml.db")
-        port (if (second args) (parse-long (second args)) 8080)]
-    (start! {:path path :port port :join? true})))
+  (let [db-type (System/getenv "DB_TYPE")
+        port    (or (some-> (System/getenv "PORT") parse-long)
+                    (some-> (second args) parse-long)
+                    8080)
+        opts    (if (= "postgres" db-type)
+                  {:type         :postgres
+                   :jdbc-url     (System/getenv "JDBC_URL")
+                   :username     (System/getenv "DB_USER")
+                   :password     (System/getenv "DB_PASSWORD")
+                   :artifact-dir (or (System/getenv "ARTIFACT_DIR") "chachaml-artifacts")}
+                  {:type :sqlite
+                   :path (or (first args) "chachaml.db")})]
+    (start! (assoc opts :port port :join? true))))

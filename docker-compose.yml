@@ -1,0 +1,46 @@
+# Team setup: Postgres + chachaml UI in one command.
+#
+# Start:  docker compose up
+# Stop:   docker compose down
+# Reset:  docker compose down -v   (deletes data)
+#
+# UI: http://localhost:8080
+# Postgres: localhost:5432/chachaml (user: chachaml, pass: chachaml)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: chachaml
+      POSTGRES_USER: chachaml
+      POSTGRES_PASSWORD: chachaml
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chachaml"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  chachaml:
+    build: .
+    environment:
+      DB_TYPE: postgres
+      JDBC_URL: jdbc:postgresql://postgres:5432/chachaml
+      DB_USER: chachaml
+      DB_PASSWORD: chachaml
+      ARTIFACT_DIR: /data/artifacts
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    volumes:
+      - artifact-data:/data/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg-data:
+  artifact-data:
