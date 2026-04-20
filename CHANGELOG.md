@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 (no changes yet)
 
+## [0.6.0] - 2026-04-20
+
+Full backlog complete: S3 artifacts, Slack webhooks, run cleanup,
+Docker, HTTP write API.
+
+### Added
+
+- **M14 S3 artifact storage** (`chachaml.store.s3`): ArtifactStore
+  against S3/MinIO via Cognitect aws-api. Metadata in Postgres/SQLite,
+  bytes in S3. `:s3` deps alias.
+- **M16 Docker**: Dockerfile (multi-stage JDK21) + docker-compose.yml
+  (Postgres + chachaml UI). `docker compose up` for team deployment.
+  UI server accepts env vars `DB_TYPE`, `JDBC_URL`, `DB_USER`, etc.
+- **M17 HTTP write API**: POST endpoints at `/api/w/runs`, `/params`,
+  `/metrics`, `/end`, `/artifacts`, `/models`. Full lifecycle test.
+  Enables Python/Go/curl clients.
+- **M18 Slack webhook for alerts**: `webhook_url` on alerts. When
+  `check-alerts!` triggers, POSTs Slack-formatted JSON to the URL.
+- **M19 Run cleanup**: `archive-runs!` marks old runs as `:archived`
+  by age + experiment. `delete-archived!` permanently removes data.
+  2 tests.
+
+### Changed
+
+- UI server `start!` now delegates to `chachaml.store/open` —
+  accepts `:type :postgres` and all store options directly.
+- Refactored: left-to-right style throughout (threading macros, let
+  bindings, named predicates, DRY).
+- Deterministic seeds per showcase use case — fixed flaky tests.
+
 ## [0.5.0] - 2026-04-20
 
 Team readiness: Postgres backend, user attribution, pipelines, alerts,

@@ -168,11 +168,24 @@ explicitly inside the body.
 - [x] Full lifecycle test via ring-mock
 - [x] Verified end-to-end with curl
 
-## Remaining
+## M14 — S3 artifact storage (v0.6)
 
-- S3 artifact storage (M14)
-- Slack webhook for alerts (M18)
-- Run cleanup / retention policy (M19)
+- [x] `chachaml.store.s3` ArtifactStore via Cognitect aws-api
+- [x] `:s3` deps alias
+
+## M18 — Slack webhook for alerts (v0.6)
+
+- [x] `webhook_url` on alerts, POST on trigger
+- [x] Slack-formatted JSON payload
+
+## M19 — Run cleanup (v0.6)
+
+- [x] `archive-runs!`, `delete-archived!`
+- [x] 2 tests (full cycle + scoped)
+
+## Backlog complete
+
+All planned milestones M0–M19 are shipped.
 
 ## Acceptance criteria per milestone
 
