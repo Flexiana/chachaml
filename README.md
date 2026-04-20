@@ -18,6 +18,11 @@ chachaml gives you:
 - **MCP server** — 16 tools for LLM agents (Claude, GPT) to query your experiments
 - **Chat-with-data** — ask "which experiment has the best accuracy?" and get an answer backed by real data
 - **Python interop** — tracked sklearn wrappers via libpython-clj2
+- **Docker** — `docker compose up` gives you Postgres + UI in one command
+- **HTTP write API** — POST endpoints for Python/Go/curl clients
+- **S3 artifacts** — shared artifact storage for teams (MinIO compatible)
+- **Slack alerts** — webhook notifications when metrics cross thresholds
+- **Run cleanup** — archive and delete old runs to control DB growth
 
 ## Quick start
 
@@ -204,12 +209,13 @@ Each step runs inside a tracked `with-run`. Results chain via `:prev-result`.
 (require '[chachaml.alerts :as alerts])
 
 (alerts/set-alert! "accuracy-drop"
-  {:experiment "production"
-   :metric-key :accuracy
-   :op         :<
-   :threshold  0.9})
+  {:experiment  "production"
+   :metric-key  :accuracy
+   :op          :<
+   :threshold   0.9
+   :webhook-url "https://hooks.slack.com/services/T.../B.../xxx"})
 
-;; Check after training runs
+;; Check after training runs — triggers Slack if threshold crossed
 (alerts/check-alerts!)
 ;; => [{:alert-name "accuracy-drop" :metric-value 0.85 :run-id "..." ...}]
 
@@ -397,6 +403,74 @@ Runs automatically capture who created them:
 
 Override with `:created-by` in `start-run!` opts if needed.
 
+### Run cleanup
+
+```clojure
+;; Archive runs older than 30 days
+(ml/archive-runs! {:older-than-days 30})
+
+;; Or scope to one experiment
+(ml/archive-runs! {:older-than-days 7 :experiment "scratch"})
+
+;; Permanently delete archived runs + all their data
+(ml/delete-archived!)
+```
+
+### Docker (team deployment)
+
+```bash
+docker compose up     # Postgres + chachaml UI at localhost:8080
+```
+
+Set environment variables for production:
+
+```yaml
+environment:
+  DB_TYPE: postgres
+  JDBC_URL: jdbc:postgresql://db:5432/chachaml
+  DB_USER: chachaml
+  DB_PASSWORD: secret
+```
+
+### HTTP write API (for Python/Go/curl)
+
+Non-Clojure engineers can log runs via REST:
+
+```bash
+# Start a run
+RUN_ID=$(curl -s -X POST http://localhost:8080/api/w/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"experiment":"iris","name":"from-python"}' | jq -r .id)
+
+# Log params + metrics
+curl -X POST http://localhost:8080/api/w/runs/$RUN_ID/params \
+  -H 'Content-Type: application/json' -d '{"lr":0.01,"epochs":100}'
+
+curl -X POST http://localhost:8080/api/w/runs/$RUN_ID/metrics \
+  -H 'Content-Type: application/json' -d '{"accuracy":0.94}'
+
+# End the run
+curl -X POST http://localhost:8080/api/w/runs/$RUN_ID/end \
+  -H 'Content-Type: application/json' -d '{"status":"completed"}'
+```
+
+All write endpoints live under `/api/w/` — see [JSON API](#json-api) for the full list.
+
+### S3 artifact storage
+
+For teams that need shared model storage:
+
+```clojure
+;; Add :s3 alias to your deps
+(require '[chachaml.store.s3 :as s3])
+
+(def art-store (s3/open {:bucket   "ml-artifacts"
+                          :prefix   "chachaml/"
+                          :endpoint "http://minio:9000"}))
+```
+
+Works with AWS S3 or any S3-compatible store (MinIO, DigitalOcean Spaces, etc.).
+
 ## Architecture
 
 ```
@@ -432,7 +506,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the quality bar, code conventions, an
 
 ## Status
 
-202 tests / 471 assertions. Coverage 85%+ forms / 93%+ lines.
+205 tests / 489 assertions. Coverage 85%+ forms / 93%+ lines.
 
 | Version | What shipped |
 |---|---|
@@ -441,6 +515,72 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the quality bar, code conventions, an
 | v0.3.0 | sklearn interop, 25 ML use case showcase |
 | v0.4.0 | Tags, datasets, search, batch metrics, tables, export, experiments, markdown notes, 16 MCP tools, 8 UI pages |
 | v0.5.0 | Postgres backend, user attribution, pipelines, alerts, chat-with-data, store dispatcher |
+| v0.6.0 | Docker, HTTP write API, S3 artifacts, Slack webhooks, run cleanup |
+
+## Publishing
+
+### To GitHub
+
+```bash
+git remote add origin git@github.com:flexiana/chachaml.git
+git push -u origin master --tags
+```
+
+Users can then depend on it via git:
+
+```clojure
+;; deps.edn
+{:deps {io.github.flexiana/chachaml
+        {:git/url "https://github.com/flexiana/chachaml"
+         :git/sha "COMMIT_SHA"}}}
+```
+
+### To Clojars
+
+1. Create a [Clojars](https://clojars.org) account and generate a deploy token.
+
+2. Set credentials:
+   ```bash
+   export CLOJARS_USERNAME=your-username
+   export CLOJARS_PASSWORD=your-deploy-token
+   ```
+
+3. Update the group-id in `build.clj` if needed (currently `org.clojars.jiriknesl/chachaml` — change to `com.flexiana/chachaml` or similar).
+
+4. Deploy:
+   ```bash
+   clojure -T:build jar
+   clojure -T:build deploy
+   ```
+
+   Note: `deploy` task needs `deps-deploy` (already in the `:build` alias). Add this to `build.clj` if not present:
+
+   ```clojure
+   (defn deploy [_]
+     ((requiring-resolve 'deps-deploy.deps-deploy/deploy)
+      {:installer :remote
+       :artifact  jar-file
+       :pom-file  (str class-dir "/META-INF/maven/" (namespace lib) "/" (name lib) "/pom.xml")}))
+   ```
+
+5. Users can then:
+   ```clojure
+   ;; deps.edn
+   {:deps {com.flexiana/chachaml {:mvn/version "0.6.0"}}}
+
+   ;; project.clj
+   [com.flexiana/chachaml "0.6.0"]
+   ```
+
+### Docker image
+
+```bash
+docker build -t flexiana/chachaml .
+docker push flexiana/chachaml           # to Docker Hub
+# or
+docker tag flexiana/chachaml ghcr.io/flexiana/chachaml
+docker push ghcr.io/flexiana/chachaml   # to GitHub Container Registry
+```
 
 ## License
 
