@@ -178,6 +178,31 @@
 
 ;; --- Model version diff ---------------------------------------------
 
+;; --- Run cleanup (M19) -----------------------------------------------
+
+(deftest archive-and-delete-runs
+  ;; Create some runs
+  (ml/with-run {:experiment "old"} (ml/log-metric :x 1))
+  (ml/with-run {:experiment "old"} (ml/log-metric :x 2))
+  (ml/with-run {:experiment "new"} (ml/log-metric :x 3))
+  (is (= 3 (count (ml/runs))))
+  ;; Archive runs older than 0 days (= all runs, since they just happened)
+  ;; Use older-than-ms with a future cutoff
+  (let [archived (ml/archive-runs! {:older-than-ms -1})]
+    (is (= 3 archived)))
+  ;; Delete archived
+  (let [deleted (ml/delete-archived!)]
+    (is (= 3 deleted)))
+  (is (= 0 (count (ml/runs)))))
+
+(deftest archive-scoped-by-experiment
+  (ml/with-run {:experiment "keep"} (ml/log-metric :x 1))
+  (ml/with-run {:experiment "drop"} (ml/log-metric :x 2))
+  (ml/archive-runs! {:older-than-ms -1 :experiment "drop"})
+  (ml/delete-archived!)
+  (is (= 1 (count (ml/runs))))
+  (is (= "keep" (:experiment (first (ml/runs))))))
+
 (deftest diff-versions-compares-runs
   (ml/with-run {:experiment "v-diff"}
     (ml/log-params {:lr 0.01})

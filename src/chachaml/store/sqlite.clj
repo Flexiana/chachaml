@@ -136,6 +136,7 @@
       op            TEXT NOT NULL,
       threshold     REAL NOT NULL,
       active        INTEGER NOT NULL DEFAULT 1,
+      webhook_url   TEXT,
       last_checked  INTEGER,
       last_triggered INTEGER,
       created_at    INTEGER NOT NULL
@@ -170,8 +171,10 @@
     (jdbc/execute! connectable [stmt]))
   ;; Column migrations for existing DBs (ALTER TABLE is not idempotent
   ;; in SQLite, so we catch the "duplicate column" error silently)
-  (try (jdbc/execute! connectable ["ALTER TABLE runs ADD COLUMN created_by TEXT"])
-       (catch Exception _)))
+  (doseq [stmt ["ALTER TABLE runs ADD COLUMN created_by TEXT"
+                "ALTER TABLE alerts ADD COLUMN webhook_url TEXT"]]
+    (try (jdbc/execute! connectable [stmt])
+         (catch Exception _))))
 
 ;; --- EDN encoding helpers ---------------------------------------------
 

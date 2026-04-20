@@ -26,7 +26,8 @@
             [chachaml.schema :as schema]
             [chachaml.serialize :as serialize]
             [chachaml.store.protocol :as p]
-            [chachaml.store.sqlite :as sqlite]))
+            [chachaml.store.sqlite :as sqlite]
+            [clojure.string :as str]))
 
 ;; --- Store binding ----------------------------------------------------
 
@@ -380,6 +381,53 @@
                 {:format :edn :content-type "application/x-chachaml-table"}))
 
 ;; --- Export ----------------------------------------------------------
+
+;; --- Run cleanup / retention ------------------------------------------
+
+(defn archive-runs!
+  "Mark old runs as `:archived`. Does not delete data.
+
+  `opts`:
+  - `:older-than-ms`  Archive runs started before this many ms ago
+  - `:older-than-days` Shorthand: archive runs older than N days
+  - `:experiment`     Scope to one experiment
+
+  Returns the number of runs archived."
+  [{:keys [older-than-ms older-than-days] :as opts}]
+  (let [exp    (:experiment opts)
+        cutoff (- (System/currentTimeMillis)
+                  (or older-than-ms (* (or older-than-days 30) 86400000)))
+        store  (ctx/current-store)
+        ds     (:datasource store)
+        where  (str "WHERE start_time < ? AND status <> 'archived'"
+                    (when exp " AND experiment = ?"))
+        params (cond-> [cutoff]
+                 exp (conj exp))
+        result ((requiring-resolve 'next.jdbc/execute-one!)
+                ds (into [(str "UPDATE runs SET status = 'archived' " where)]
+                         params))]
+    (or (:next.jdbc/update-count result) 0)))
+
+(defn delete-archived!
+  "Permanently delete all archived runs and their associated data
+  (params, metrics, tags, datasets, artifacts).
+
+  Returns the number of runs deleted."
+  []
+  (let [store (ctx/current-store)
+        ds    (:datasource store)
+        exec! (requiring-resolve 'next.jdbc/execute-one!)
+        ids   (->> ((requiring-resolve 'next.jdbc/execute!)
+                    ds ["SELECT id FROM runs WHERE status = 'archived'"])
+                   (mapv :runs/id))]
+    (when (seq ids)
+      (let [placeholders (str/join "," (repeat (count ids) "?"))
+            in-clause    (str "(" placeholders ")")]
+        (doseq [table ["params" "metrics" "tags" "datasets" "artifacts"]]
+          (exec! ds (into [(str "DELETE FROM " table " WHERE run_id IN " in-clause)]
+                          ids)))
+        (exec! ds (into [(str "DELETE FROM runs WHERE id IN " in-clause)] ids))))
+    (count ids)))
 
 (defn export-runs
   "Export runs as a vector of flat maps (one per run) with params and

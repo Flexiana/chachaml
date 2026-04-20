@@ -22,7 +22,9 @@
       (alerts/alert-history \"acc-drop\")  ; all past triggers"
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
-            [next.jdbc :as jdbc]))
+            [next.jdbc :as jdbc])
+  (:import [java.io OutputStreamWriter]
+           [java.net HttpURLConnection URL]))
 
 (defn set-alert!
   "Create or replace an alert rule. Returns the alert map.
@@ -33,20 +35,22 @@
   - `:threshold`    number
 
   Optional:
-  - `:experiment`   scope to an experiment (nil = all)"
-  [alert-name {:keys [experiment metric-key op threshold]}]
+  - `:experiment`   scope to an experiment (nil = all)
+  - `:webhook-url`  URL to POST when triggered (e.g. Slack incoming webhook)"
+  [alert-name {:keys [experiment metric-key op threshold webhook-url]}]
   (let [store    (ctx/current-store)
         alert-id (str (random-uuid))
         now      (System/currentTimeMillis)]
     (jdbc/execute-one!
      (:datasource store)
      ["INSERT OR REPLACE INTO alerts (id, name, experiment, metric_key, op,
-                                      threshold, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?)"
+                                      threshold, active, webhook_url, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)"
       alert-id alert-name experiment (name metric-key) (name op)
-      (double threshold) now])
+      (double threshold) webhook-url now])
     {:id alert-id :name alert-name :experiment experiment
-     :metric-key metric-key :op op :threshold threshold}))
+     :metric-key metric-key :op op :threshold threshold
+     :webhook-url webhook-url}))
 
 (defn alerts
   "List all active alerts."
@@ -56,14 +60,16 @@
           (:datasource store)
           ["SELECT * FROM alerts WHERE active = 1 ORDER BY name"])
          (mapv (fn [row]
-                 {:id         (:alerts/id row)
-                  :name       (:alerts/name row)
-                  :experiment (:alerts/experiment row)
-                  :metric-key (keyword (:alerts/metric_key row))
-                  :op         (keyword (:alerts/op row))
-                  :threshold  (:alerts/threshold row)
-                  :active     (= 1 (:alerts/active row))
-                  :created-at (:alerts/created_at row)})))))
+                 (cond-> {:id         (:alerts/id row)
+                          :name       (:alerts/name row)
+                          :experiment (:alerts/experiment row)
+                          :metric-key (keyword (:alerts/metric_key row))
+                          :op         (keyword (:alerts/op row))
+                          :threshold  (:alerts/threshold row)
+                          :active     (= 1 (:alerts/active row))
+                          :created-at (:alerts/created_at row)}
+                   (:alerts/webhook_url row)
+                   (assoc :webhook-url (:alerts/webhook_url row))))))))
 
 (defn deactivate-alert!
   "Deactivate an alert by name (doesn't delete history)."
@@ -72,6 +78,35 @@
     (jdbc/execute-one!
      (:datasource store)
      ["UPDATE alerts SET active = 0 WHERE name = ?" alert-name])))
+
+(defn- post-webhook!
+  "POST a JSON payload to a webhook URL. Best-effort — logs errors but
+  doesn't throw so alert processing continues."
+  [url payload]
+  (try
+    (let [conn (doto ^HttpURLConnection (.openConnection (URL. url))
+                 (.setRequestMethod "POST")
+                 (.setDoOutput true)
+                 (.setConnectTimeout 5000)
+                 (.setReadTimeout 10000)
+                 (.setRequestProperty "Content-Type" "application/json"))]
+      (with-open [w (OutputStreamWriter. (.getOutputStream conn))]
+        (.write w ^String payload)
+        (.flush w))
+      (.getResponseCode conn))
+    (catch Exception e
+      (binding [*out* *err*]
+        (println "[chachaml-alerts] Webhook failed:" (ex-message e))))))
+
+(defn- slack-payload
+  "Build a Slack-compatible JSON payload for a triggered alert."
+  [event]
+  (let [text (str ":warning: *Alert triggered: " (:alert-name event) "*\n"
+                  "Metric `" (name (:metric-key event)) "` = "
+                  (:metric-value event) " "
+                  (name (:op event)) " " (:threshold event) "\n"
+                  "Run: `" (:run-id event) "`")]
+    (str "{\"text\":" (pr-str text) "}")))
 
 (defn- eval-op [op actual threshold]
   (case op
@@ -116,13 +151,17 @@
           (:datasource store)
           ["UPDATE alerts SET last_checked = ?, last_triggered = ? WHERE id = ?"
            now now (:id alert)])
-         {:alert-name   (:name alert)
-          :run-id       (:id latest-run)
-          :metric-key   (:metric-key alert)
-          :metric-value latest-val
-          :threshold    (:threshold alert)
-          :op           (:op alert)
-          :triggered-at now})))))
+         (let [event {:alert-name   (:name alert)
+                      :run-id       (:id latest-run)
+                      :metric-key   (:metric-key alert)
+                      :metric-value latest-val
+                      :threshold    (:threshold alert)
+                      :op           (:op alert)
+                      :triggered-at now}]
+           ;; Fire webhook if configured
+           (when-let [url (:webhook-url alert)]
+             (post-webhook! url (slack-payload event)))
+           event))))))
 
 (defn alert-history
   "Get all past trigger events for an alert."

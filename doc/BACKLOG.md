@@ -155,10 +155,21 @@ explicitly inside the body.
 - [x] Filterable: `(runs {:created-by "maria"})`
 - [x] Visible in UI runs table
 
-## Remaining (post-v0.5)
+## M16 — Docker (v0.5)
 
-- Docker image + docker-compose (M16)
-- HTTP write API for non-Clojure clients (M17)
+- [x] Dockerfile: multi-stage JDK21 + env-var config
+- [x] docker-compose.yml: Postgres 16 + chachaml UI
+- [x] UI server accepts `:type :postgres` via env vars
+
+## M17 — HTTP write API (v0.5)
+
+- [x] POST `/api/w/runs` (start), `/params`, `/metrics`, `/end`,
+  `/artifacts`, `/models`
+- [x] Full lifecycle test via ring-mock
+- [x] Verified end-to-end with curl
+
+## Remaining
+
 - S3 artifact storage (M14)
 - Slack webhook for alerts (M18)
 - Run cleanup / retention policy (M19)
