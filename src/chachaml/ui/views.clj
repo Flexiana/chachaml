@@ -74,13 +74,14 @@
                    [:th {:class "p-2"} "Experiment"]
                    [:th {:class "p-2"} "Name"]
                    [:th {:class "p-2"} "Status"]
+                   [:th {:class "p-2"} "User"]
                    [:th {:class "p-2"} "Started"]
                    [:th {:class "p-2"} "Duration"]]]
                  [:tbody
                   (if (empty? runs)
-                    [:tr [:td {:colspan 7 :class "p-4 text-center text-gray-400"}
+                    [:tr [:td {:colspan 8 :class "p-4 text-center text-gray-400"}
                           "No runs yet"]]
-                    (for [{:keys [id experiment status start-time end-time]
+                    (for [{:keys [id experiment status start-time end-time created-by]
                            run-name :name} runs]
                       [:tr {:class "border-b hover:bg-gray-50"}
                        [:td {:class "p-2"}
@@ -93,6 +94,7 @@
                        [:td {:class "p-2"} experiment]
                        [:td {:class "p-2"} (or run-name "—")]
                        [:td {:class "p-2"} (status-badge status)]
+                       [:td {:class "p-2 text-xs text-gray-500"} (or created-by "—")]
                        [:td {:class "p-2 text-xs text-gray-500"} (fmt/fmt-instant start-time)]
                        [:td {:class "p-2 text-xs text-gray-500"}
                         (or (fmt/fmt-duration start-time end-time) "—")]]))]]]))

@@ -36,10 +36,11 @@
 (def StartRunOpts
   "Options accepted by `start-run!` and `with-run`."
   [:map
-   [:experiment {:optional true} :string]
-   [:name       {:optional true} [:maybe :string]]
-   [:tags       {:optional true} [:maybe :map]]
-   [:parent-run-id {:optional true} [:maybe :string]]])
+   [:experiment  {:optional true} :string]
+   [:name        {:optional true} [:maybe :string]]
+   [:tags        {:optional true} [:maybe :map]]
+   [:parent-run-id {:optional true} [:maybe :string]]
+   [:created-by  {:optional true} [:maybe :string]]])
 
 (def Params
   "Params map: any keyword/string key, any EDN-serializable value."
@@ -64,6 +65,7 @@
    [:status        {:optional true} Status]
    [:name          {:optional true} :string]
    [:parent-run-id {:optional true} :string]
+   [:created-by    {:optional true} :string]
    [:limit         {:optional true} pos-int?]])
 
 (def ArtifactFormat

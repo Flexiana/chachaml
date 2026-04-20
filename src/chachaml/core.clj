@@ -74,6 +74,8 @@
    (let [store  (ctx/current-store)
          parent (or (:parent-run-id opts)
                     (some-> (ctx/current-run) :id))
+         user   (or (:created-by opts)
+                    (System/getProperty "user.name"))
          run    {:id            (new-run-id)
                  :experiment    (or (:experiment opts) "default")
                  :name          (:name opts)
@@ -81,7 +83,8 @@
                  :start-time    (System/currentTimeMillis)
                  :tags          (:tags opts)
                  :env           (env/capture)
-                 :parent-run-id parent}]
+                 :parent-run-id parent
+                 :created-by    user}]
      (p/-create-run! store run)
      run)))
 

@@ -39,7 +39,8 @@
       error         TEXT,
       tags          TEXT,
       env           TEXT,
-      parent_run_id TEXT
+      parent_run_id TEXT,
+      created_by    TEXT
     )"
    "CREATE INDEX IF NOT EXISTS idx_runs_experiment ON runs(experiment)"
    "CREATE INDEX IF NOT EXISTS idx_runs_start_time ON runs(start_time)"
@@ -166,7 +167,11 @@
   (jdbc/execute! connectable ["PRAGMA journal_mode=WAL"])
   (jdbc/execute! connectable ["PRAGMA busy_timeout=5000"])
   (doseq [stmt schema-statements]
-    (jdbc/execute! connectable [stmt])))
+    (jdbc/execute! connectable [stmt]))
+  ;; Column migrations for existing DBs (ALTER TABLE is not idempotent
+  ;; in SQLite, so we catch the "duplicate column" error silently)
+  (try (jdbc/execute! connectable ["ALTER TABLE runs ADD COLUMN created_by TEXT"])
+       (catch Exception _)))
 
 ;; --- EDN encoding helpers ---------------------------------------------
 
@@ -308,7 +313,8 @@
            error         :runs/error
            tags          :runs/tags
            env           :runs/env
-           parent-run-id :runs/parent_run_id} row]
+           parent-run-id :runs/parent_run_id
+           created-by    :runs/created_by} row]
       (cond-> {:id         run-id
                :experiment experiment
                :status     (db->kw status)
@@ -318,7 +324,8 @@
         error         (assoc :error error)
         tags          (assoc :tags (dec-edn tags))
         env           (assoc :env (dec-edn env))
-        parent-run-id (assoc :parent-run-id parent-run-id)))))
+        parent-run-id (assoc :parent-run-id parent-run-id)
+        created-by    (assoc :created-by created-by)))))
 
 (def ^:private update-key->col
   {:experiment    "experiment"
@@ -343,7 +350,8 @@
   {:experiment    "experiment"
    :status        "status"
    :name          "name"
-   :parent-run-id "parent_run_id"})
+   :parent-run-id "parent_run_id"
+   :created-by    "created_by"})
 
 (defn- where-clause
   "Build a `[sql-fragment params]` pair for supported equality filters."
@@ -373,8 +381,8 @@
     (jdbc/execute-one!
      datasource
      ["INSERT INTO runs (id, experiment, name, status, start_time,
-                         end_time, error, tags, env, parent_run_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                         end_time, error, tags, env, parent_run_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       (:id run)
       (or (:experiment run) "default")
       (:name run)
@@ -384,7 +392,8 @@
       (:error run)
       (enc (:tags run))
       (enc (:env run))
-      (:parent-run-id run)])
+      (:parent-run-id run)
+      (:created-by run)])
     run)
 
   (-update-run! [_ run-id updates]
