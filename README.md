@@ -390,18 +390,32 @@ HikariCP connection pool included. Same schema, same map shapes — swap backend
 
 ### User attribution
 
-Runs automatically capture who created them:
+Runs automatically capture who created them. Set `CHACHA_USER` in your shell profile:
 
-```clojure
-(ml/with-run {:experiment "iris"} ...)
-(:created-by (ml/last-run))
-;; => "maria"   (auto-captured from system user)
-
-;; Filter by person
-(ml/runs {:created-by "tomas"})
+```bash
+export CHACHA_USER=maria
 ```
 
-Override with `:created-by` in `start-run!` opts if needed.
+Falls back to the system `user.name` if not set.
+
+```clojure
+;; My runs only
+(ml/my-last-run)
+(ml/my-runs {:experiment "iris"})
+
+;; Everyone's runs
+(ml/last-run)
+(ml/runs)
+
+;; Filter by any user
+(ml/runs {:created-by "tomas"})
+
+;; Check who you are
+(ml/current-user)
+;; => "maria"
+```
+
+Override per-run with `:created-by` in `start-run!` opts if needed.
 
 ### Run cleanup
 
