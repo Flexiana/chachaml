@@ -3,7 +3,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib       'com.flexiana/chachaml)
-(def version   "0.6.2")
+(def version   "0.6.3")
 (def class-dir "target/classes")
 (def jar-file  (format "target/%s-%s.jar" (name lib) version))
 

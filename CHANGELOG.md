@@ -9,26 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 (no changes yet)
 
-## [0.6.2] - 2026-04-27
+## [0.6.3] - 2026-04-27
 
 Documentation release. Library code is unchanged from 0.6.0; this
 release ships a Diátaxis-shaped doc set and hosted API references.
 
 ### Fixed
 
-- `build.clj` now writes `<licenses>` into the generated pom (MIT,
-  matching `LICENSE` and `project.clj`). Required by Clojars as of
-  late 2025.
-- `:build` deps alias now includes `slipset/deps-deploy`, which the
+- `doc/cljdoc.edn` tree shape: children are inline siblings, not
+  wrapped in an extra vector. v0.6.2 published cleanly to Clojars
+  but cljdoc rejected the malformed tree.
+- `build.clj` writes `<licenses>` (MIT) into the pom; required by
+  Clojars as of late 2025.
+- `:build` deps alias includes `slipset/deps-deploy`, which the
   `deploy` task in `build.clj` requires.
 
-### Note on 0.6.1
+### Note on 0.6.1 and 0.6.2
 
-v0.6.1 was tagged in git but never fully published to Clojars: the
-pom and jar uploaded but the metadata.xml step failed because the
-pom was missing the licenses block. Clojars locks the version anyway,
-so 0.6.2 is the first version of the docs release that's actually
-installable. The `v0.6.1` git tag is retained for traceability.
+v0.6.1 was tagged in git but never fully reached Clojars: the pom
+and jar uploaded but the metadata.xml step failed because the pom
+was missing the licenses block. Clojars locks coordinates on first
+attempted upload, so the version became unusable.
+
+v0.6.2 published to Clojars cleanly, but the `doc/cljdoc.edn` tree
+was malformed (children wrapped in an extra vector), causing
+cljdoc's analysis step to throw "Don't know how to create ISeq from:
+clojure.lang.Keyword". The Clojars artifact at 0.6.2 is installable
+and equivalent to 0.6.3 — only the hosted API ref is broken.
+
+0.6.3 is the first version that's both installable and renders on
+cljdoc. The `v0.6.1` and `v0.6.2` git tags are retained for
+traceability.
 
 ### Added
 
