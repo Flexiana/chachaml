@@ -57,7 +57,7 @@ chachaml gives you:
 ```clojure
 ;; Clone locally, then:
 ;; cd chachaml && lein install
-[chachaml "0.4.0"]
+[chachaml "0.6.1"]
 ```
 
 ### 30-second REPL session
@@ -539,7 +539,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the quality bar, code conventions, an
 
 ## Status
 
-205 tests / 489 assertions. Coverage 85%+ forms / 93%+ lines.
+205 tests / 489 assertions. Coverage 82%+ forms / 91%+ lines (cloverage gate at 80%).
 
 | Version | What shipped |
 |---|---|
@@ -549,6 +549,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the quality bar, code conventions, an
 | v0.4.0 | Tags, datasets, search, batch metrics, tables, export, experiments, markdown notes, 16 MCP tools, 8 UI pages |
 | v0.5.0 | Postgres backend, user attribution, pipelines, alerts, chat-with-data, store dispatcher |
 | v0.6.0 | Docker, HTTP write API, S3 artifacts, Slack webhooks, run cleanup |
+| v0.6.1 | Diátaxis doc set (Tutorial, Design, How-to, Web UI tour, MCP ref, FAQ, Troubleshooting), cljdoc + gh-pages publishing |
 
 ## Publishing
 
@@ -599,10 +600,10 @@ Users can then depend on it via git:
 5. Users can then:
    ```clojure
    ;; deps.edn
-   {:deps {com.flexiana/chachaml {:mvn/version "0.6.0"}}}
+   {:deps {com.flexiana/chachaml {:mvn/version "0.6.1"}}}
 
    ;; project.clj
-   [com.flexiana/chachaml "0.6.0"]
+   [com.flexiana/chachaml "0.6.1"]
    ```
 
 ### Docker image

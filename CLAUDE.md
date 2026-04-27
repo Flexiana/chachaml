@@ -4,8 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-chachaml is at **v0.5.0** — a feature-complete MLOps library with 202
-tests / 471 assertions. All milestones M0–M15 are shipped.
+chachaml is at **v0.6.1** — a feature-complete MLOps library with 205
+tests / 489 assertions. All milestones M0–M19 are shipped, plus a full
+Diátaxis-shaped documentation set (TUTORIAL, DESIGN, WEB_UI, MCP, FAQ,
+TROUBLESHOOTING, six how-to guides) with cljdoc + gh-pages publishing.
 
 ## What this is
 
@@ -37,7 +39,7 @@ layers. Store → context → core → {registry, repl, tracking, mcp, ui}.
 bb test          # kaocha
 bb lint          # clj-kondo (fails on warnings)
 bb fmt-check     # cljfmt
-bb coverage      # cloverage ≥ 85% line gate
+bb coverage      # cloverage ≥ 80% gate (forms ≥ 82%, lines ≥ 91% in practice)
 bb lein-test     # proves dual build
 bb ci            # all of the above
 ```

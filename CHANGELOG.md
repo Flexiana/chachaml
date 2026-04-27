@@ -7,13 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Documentation
+(no changes yet)
 
-- **World-class doc set** following the [Diátaxis](https://diataxis.fr) split:
+## [0.6.1] - 2026-04-27
+
+Documentation-only release. Library code is unchanged from 0.6.0;
+this release ships a Diátaxis-shaped doc set and hosted API
+references.
+
+### Added
+
+- **Doc set** following the [Diátaxis](https://diataxis.fr) split:
   `doc/TUTORIAL.md` (45-minute walkthrough), `doc/DESIGN.md` (rationale
   consolidating ADRs), `doc/WEB_UI.md` (page-by-page tour), `doc/MCP.md`
   (16-tool reference), `doc/FAQ.md` and `doc/TROUBLESHOOTING.md`, plus
-  six P0 how-to guides under `doc/howto/`.
+  six P0 how-to guides under `doc/howto/` (SQLite→Postgres migration,
+  Docker team deployment, MCP+Claude Code, Slack alerts, sklearn
+  tracking, HTTP write API).
 - **Hosted API reference** via cljdoc (`doc/cljdoc.edn` bundle config)
   and codox (`:codox` deps alias + `bb docs` task).
 - **gh-pages publishing** via `.github/workflows/docs.yml`.

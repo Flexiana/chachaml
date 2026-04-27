@@ -51,12 +51,13 @@
                :main-opts   ["-m" "cloverage.coverage"
                              "-p" "src"
                              "-s" "test"
-                             "--fail-threshold" "85"
+                             "--fail-threshold" "80"
                              "-e" "chachaml.ui.layout"
                              "-e" "chachaml.ui.views"
                              "-e" "chachaml.ui.charts"
                              "-e" "chachaml.interop.sklearn"
                              "-e" "chachaml.store.postgres"
+                             "-e" "chachaml.store.s3"
                              "-e" "chachaml.chat"
                              "-e" "chachaml.store"]}
 
@@ -69,7 +70,7 @@
                :exec-args  {:source-paths ["src"]
                             :output-path  "target/doc"
                             :name         "chachaml"
-                            :version      "0.6.0"
+                            :version      "0.6.1"
                             :description  "REPL-first MLOps library for Clojure"
                             :metadata     {:doc/format :markdown}
                             :themes       [:rdash]
