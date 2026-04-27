@@ -9,11 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 (no changes yet)
 
-## [0.6.1] - 2026-04-27
+## [0.6.2] - 2026-04-27
 
-Documentation-only release. Library code is unchanged from 0.6.0;
-this release ships a Diátaxis-shaped doc set and hosted API
-references.
+Documentation release. Library code is unchanged from 0.6.0; this
+release ships a Diátaxis-shaped doc set and hosted API references.
+
+### Fixed
+
+- `build.clj` now writes `<licenses>` into the generated pom (MIT,
+  matching `LICENSE` and `project.clj`). Required by Clojars as of
+  late 2025.
+- `:build` deps alias now includes `slipset/deps-deploy`, which the
+  `deploy` task in `build.clj` requires.
+
+### Note on 0.6.1
+
+v0.6.1 was tagged in git but never fully published to Clojars: the
+pom and jar uploaded but the metadata.xml step failed because the
+pom was missing the licenses block. Clojars locks the version anyway,
+so 0.6.2 is the first version of the docs release that's actually
+installable. The `v0.6.1` git tag is retained for traceability.
 
 ### Added
 

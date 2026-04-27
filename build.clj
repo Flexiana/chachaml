@@ -3,7 +3,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib       'com.flexiana/chachaml)
-(def version   "0.6.1")
+(def version   "0.6.2")
 (def class-dir "target/classes")
 (def jar-file  (format "target/%s-%s.jar" (name lib) version))
 
@@ -14,6 +14,13 @@
   [_]
   (b/delete {:path "target"}))
 
+(def ^:private pom-data
+  [[:licenses
+    [:license
+     [:name "MIT License"]
+     [:url "https://opensource.org/licenses/MIT"]
+     [:distribution "repo"]]]])
+
 (defn jar
   "Build a library jar from the current sources."
   [_]
@@ -23,7 +30,8 @@
                 :version   version
                 :basis     (basis)
                 :src-dirs  ["src"]
-                :scm       {:url "https://github.com/flexiana/chachaml"}})
+                :scm       {:url "https://github.com/flexiana/chachaml"}
+                :pom-data  pom-data})
   (b/copy-dir {:src-dirs   ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
