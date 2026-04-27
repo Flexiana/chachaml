@@ -1,8 +1,27 @@
 # chachaml
 
+[![cljdoc](https://cljdoc.org/badge/com.flexiana/chachaml)](https://cljdoc.org/d/com.flexiana/chachaml)
+[![API reference](https://img.shields.io/badge/API-gh--pages-blue)](https://flexiana.github.io/chachaml)
+
 A practical, REPL-first MLOps library for Clojure.
 
 Track experiments, store artifacts, manage models, run pipelines, set alerts, and chat with your data — all from the REPL, a web UI, or an LLM agent.
+
+## Documentation
+
+| | |
+|---|---|
+| 📘 [Tutorial](doc/TUTORIAL.md) | 45-minute walkthrough from install to MCP |
+| 🧭 [Design & rationale](doc/DESIGN.md) | Why the library is shaped the way it is |
+| 📚 [API reference (cljdoc)](https://cljdoc.org/d/com.flexiana/chachaml) | Auto-generated from docstrings, with bundled docs |
+| 📚 [API reference (gh-pages)](https://flexiana.github.io/chachaml) | Codox mirror for offline / air-gapped use |
+| 🍳 [How-to guides](doc/howto/) | Task-oriented recipes |
+| 🖥️ [Web UI tour](doc/WEB_UI.md) | What each page does |
+| 🔌 [MCP reference](doc/MCP.md) | Tools available to LLM agents |
+| ❓ [FAQ](doc/FAQ.md) · [Troubleshooting](doc/TROUBLESHOOTING.md) | Common questions and failure modes |
+| 📝 [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) | Release notes & development guide |
+
+The rest of this README is a single-page reference. For learning the library start-to-finish, follow the [Tutorial](doc/TUTORIAL.md). For the *why* behind the design, read [Design & rationale](doc/DESIGN.md).
 
 ## Why chachaml?
 

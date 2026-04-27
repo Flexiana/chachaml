@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-(no changes yet)
+### Documentation
+
+- **World-class doc set** following the [Diátaxis](https://diataxis.fr) split:
+  `doc/TUTORIAL.md` (45-minute walkthrough), `doc/DESIGN.md` (rationale
+  consolidating ADRs), `doc/WEB_UI.md` (page-by-page tour), `doc/MCP.md`
+  (16-tool reference), `doc/FAQ.md` and `doc/TROUBLESHOOTING.md`, plus
+  six P0 how-to guides under `doc/howto/`.
+- **Hosted API reference** via cljdoc (`doc/cljdoc.edn` bundle config)
+  and codox (`:codox` deps alias + `bb docs` task).
+- **gh-pages publishing** via `.github/workflows/docs.yml`.
+- **README**: documentation jump-table near the top with cljdoc and
+  gh-pages badges.
 
 ## [0.6.0] - 2026-04-20
 

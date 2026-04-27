@@ -72,6 +72,13 @@ Both `deps.edn` and `project.clj` are maintained.
 | Shared formatters | `src/chachaml/format.clj` |
 | 25 ML examples | `examples/ml_showcase.clj` |
 | Test fixture | `test/chachaml/test_helpers.clj` |
+| User-facing tutorial | `doc/TUTORIAL.md` |
+| Design rationale | `doc/DESIGN.md` |
+| Web UI tour | `doc/WEB_UI.md` |
+| MCP tools reference | `doc/MCP.md` |
+| FAQ + troubleshooting | `doc/FAQ.md`, `doc/TROUBLESHOOTING.md` |
+| How-to guides | `doc/howto/` |
+| cljdoc bundle config | `doc/cljdoc.edn` |
 
 ## Quality bar
 
@@ -83,3 +90,10 @@ schemas for API inputs.
 
 Keep `CHANGELOG.md`, `doc/BACKLOG.md`, and `README.md` in sync with
 code changes. ADRs live in `doc/adr/`.
+
+User-facing docs follow the [Diátaxis](https://diataxis.fr) split:
+`TUTORIAL.md` (learning), `DESIGN.md` (explanation), `doc/howto/`
+(task recipes), and `doc/MCP.md` / `doc/WEB_UI.md` (reference). Refer
+users to `doc/TUTORIAL.md` for end-to-end onboarding rather than the
+README's inline snippets. The cljdoc bundle is configured at
+`doc/cljdoc.edn`; codox runs via `bb docs`.

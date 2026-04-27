@@ -63,6 +63,32 @@
   :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
                :ns-default build}
 
+  :codox      {:extra-deps {codox/codox        {:mvn/version "0.10.8"}
+                            codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}}
+               :exec-fn    codox.main/generate-docs
+               :exec-args  {:source-paths ["src"]
+                            :output-path  "target/doc"
+                            :name         "chachaml"
+                            :version      "0.6.0"
+                            :description  "REPL-first MLOps library for Clojure"
+                            :metadata     {:doc/format :markdown}
+                            :themes       [:rdash]
+                            :source-uri   "https://github.com/flexiana/chachaml/blob/master/{filepath}#L{line}"
+                            :namespaces   [chachaml.core
+                                           chachaml.registry
+                                           chachaml.tracking
+                                           chachaml.pipeline
+                                           chachaml.alerts
+                                           chachaml.chat
+                                           chachaml.mcp
+                                           chachaml.repl
+                                           chachaml.format
+                                           chachaml.serialize
+                                           chachaml.schema
+                                           chachaml.env
+                                           chachaml.store
+                                           chachaml.ui.server]}}
+
   :examples   {:extra-paths ["examples"]}
 
   :python     {:extra-deps  {clj-python/libpython-clj {:mvn/version "2.028"}}}

@@ -25,6 +25,9 @@
   ci         {:doc     "Run all CI checks locally"
               :depends [lint fmt-check test lein-test coverage]}
 
+  docs       {:doc  "Generate API reference HTML to target/doc via codox"
+              :task (clojure "-X:ui:postgres:s3:codox")}
+
   clean      {:doc  "Remove build outputs and local store"
               :task (do (fs/delete-tree "target")
                         (fs/delete-if-exists "chachaml.db")

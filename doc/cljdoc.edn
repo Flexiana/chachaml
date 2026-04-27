@@ -1,0 +1,24 @@
+{:cljdoc.doc/tree
+ [["Readme" {:file "README.md"}]
+  ["Tutorial" {:file "doc/TUTORIAL.md"}]
+  ["Design & rationale" {:file "doc/DESIGN.md"}
+   [["ADR-0002 Store protocol shape"      {:file "doc/adr/0002-store-protocol-shape.md"}]
+    ["ADR-0003 SQLite default backend"    {:file "doc/adr/0003-sqlite-default-backend.md"}]
+    ["ADR-0004 Dynamic vars for context"  {:file "doc/adr/0004-dynamic-vars-for-context.md"}]
+    ["ADR-0005 Filesystem-backed artifacts" {:file "doc/adr/0005-filesystem-backed-artifacts.md"}]
+    ["ADR-0006 Production stage exclusivity" {:file "doc/adr/0006-production-stage-exclusivity.md"}]]]
+  ["How-to guides"
+   [["Migrate SQLite → Postgres"    {:file "doc/howto/migrate-sqlite-to-postgres.md"}]
+    ["Team deployment with Docker"  {:file "doc/howto/team-deployment-docker.md"}]
+    ["Configure MCP with Claude Code" {:file "doc/howto/configure-mcp-with-claude-code.md"}]
+    ["Wire up Slack alerts"         {:file "doc/howto/wire-up-slack-alerts.md"}]
+    ["Track sklearn models"         {:file "doc/howto/track-sklearn-models.md"}]
+    ["Log from Python or curl"      {:file "doc/howto/log-from-python-or-curl.md"}]]]
+  ["Web UI tour"      {:file "doc/WEB_UI.md"}]
+  ["MCP reference"    {:file "doc/MCP.md"}]
+  ["FAQ"              {:file "doc/FAQ.md"}]
+  ["Troubleshooting"  {:file "doc/TROUBLESHOOTING.md"}]
+  ["Using a dev version locally" {:file "doc/USING-LOCALLY.md"}]
+  ["Changelog"        {:file "CHANGELOG.md"}]
+  ["Contributing"     {:file "CONTRIBUTING.md"}]
+  ["License"          {:file "LICENSE"}]]}
