@@ -61,7 +61,8 @@
                              "-e" "chachaml.chat"
                              "-e" "chachaml.store"]}
 
-  :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
+  :build      {:deps      {io.github.clojure/tools.build {:mvn/version "0.10.5"}
+                            slipset/deps-deploy            {:mvn/version "0.2.2"}}
                :ns-default build}
 
   :codox      {:extra-deps {codox/codox        {:mvn/version "0.10.8"}
