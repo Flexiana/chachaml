@@ -289,3 +289,57 @@
   (let [resp ((handler) (mock/request :get "/api/export?experiment=csv"))]
     (is (= 200 (:status resp)))
     (is (str/includes? (get-in resp [:headers "Content-Type"]) "text/csv"))))
+
+;; --- Pipelines pages -------------------------------------------------
+
+(deftest pipelines-page-empty
+  (let [resp (get-html "/pipelines")]
+    (is (= 200 (:status resp)))
+    (is (str/includes? (:body resp) "No pipelines yet"))))
+
+(deftest pipelines-page-with-data
+  (let [pipe (requiring-resolve 'chachaml.pipeline/run-pipeline!)]
+    (pipe "smoke" [{:name "step-a" :fn (fn [_] :ok)}
+                   {:name "step-b" :fn (fn [_] :ok)}])
+    (let [resp (get-html "/pipelines")]
+      (is (= 200 (:status resp)))
+      (is (str/includes? (:body resp) "smoke"))
+      (is (str/includes? (:body resp) "completed")))))
+
+(deftest pipeline-detail-page
+  (let [pipe   (requiring-resolve 'chachaml.pipeline/run-pipeline!)
+        ls     (requiring-resolve 'chachaml.pipeline/pipelines)
+        result (pipe "detail-test"
+                     [{:name "alpha" :fn (fn [_] {:k 1})}
+                      {:name "beta"  :fn (fn [_] {:k 2})}])
+        pl-id  (:pipeline-id result)
+        resp   (get-html (str "/pipelines/" pl-id))]
+    (is (some? pl-id))
+    (is (some #(= pl-id (:id %)) (ls)))
+    (is (= 200 (:status resp)))
+    (is (str/includes? (:body resp) "detail-test"))
+    (is (str/includes? (:body resp) "alpha"))
+    (is (str/includes? (:body resp) "beta"))))
+
+(deftest pipeline-detail-404
+  (let [resp (get-html "/pipelines/no-such-id")]
+    (is (= 404 (:status resp)))
+    (is (str/includes? (:body resp) "not found"))))
+
+(deftest api-pipelines-empty
+  (let [{:keys [status parsed]} (get-json "/api/pipelines")]
+    (is (= 200 status))
+    (is (= [] parsed))))
+
+(deftest api-pipelines-and-detail
+  (let [pipe   (requiring-resolve 'chachaml.pipeline/run-pipeline!)
+        result (pipe "api-test"
+                     [{:name "only-step" :fn (fn [_] :ok)}])
+        pl-id  (:pipeline-id result)
+        list-resp   (get-json "/api/pipelines")
+        detail-resp (get-json (str "/api/pipelines/" pl-id))]
+    (is (= 200 (:status list-resp)))
+    (is (= 1 (count (:parsed list-resp))))
+    (is (= 200 (:status detail-resp)))
+    (is (= "api-test" (-> detail-resp :parsed :name)))
+    (is (= 1 (count (-> detail-resp :parsed :steps))))))

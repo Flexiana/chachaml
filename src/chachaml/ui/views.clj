@@ -396,6 +396,121 @@
 
 ;; --- Experiments page ------------------------------------------------
 
+;; --- Pipelines pages -------------------------------------------------
+
+(defn- pipeline-status-class
+  "Tailwind classes for a pipeline / step status badge."
+  [status]
+  (let [s (if (keyword? status) (name status) (str status))]
+    (case s
+      "completed" "bg-green-100 text-green-800"
+      "running"   "bg-yellow-100 text-yellow-800"
+      "failed"    "bg-red-100 text-red-800"
+      "bg-gray-100 text-gray-800")))
+
+(defn pipelines-page
+  "List of pipelines, most recent first."
+  [pipelines]
+  (layout/page "Pipelines"
+               [:h1 {:class "text-2xl font-bold mb-4"} "Pipelines"]
+               (if (empty? pipelines)
+                 [:p {:class "text-gray-400"}
+                  "No pipelines yet. Run one via "
+                  [:code "chachaml.pipeline/run-pipeline!"] "."]
+                 [:table {:class "w-full text-sm border-collapse"}
+                  [:thead [:tr {:class "border-b bg-gray-100"}
+                           [:th {:class "p-2 text-left"} "ID"]
+                           [:th {:class "p-2 text-left"} "Name"]
+                           [:th {:class "p-2 text-left"} "Status"]
+                           [:th {:class "p-2 text-left"} "Started"]
+                           [:th {:class "p-2 text-left"} "Duration"]]]
+                  [:tbody
+                   (for [{:keys [id status created-at finished-at]
+                          pl-name :name} pipelines]
+                     [:tr {:class "border-b hover:bg-gray-50"}
+                      [:td {:class "p-2"}
+                       [:a {:href (str "/pipelines/" id)
+                            :class "text-indigo-600 hover:underline font-mono text-xs"}
+                        (subs (str id) 0 8)]]
+                      [:td {:class "p-2 font-medium"} pl-name]
+                      [:td {:class "p-2"}
+                       [:span {:class (str "px-2 py-0.5 rounded text-xs font-medium "
+                                           (pipeline-status-class status))}
+                        (if (keyword? status) (clojure.core/name status) (str status))]]
+                      [:td {:class "p-2 text-xs text-gray-500"}
+                       (fmt/fmt-instant created-at)]
+                      [:td {:class "p-2 text-xs text-gray-500"}
+                       (or (fmt/fmt-duration created-at finished-at) "—")]])]])))
+
+(defn pipeline-page
+  "Detail page for a single pipeline: header + a step list with links
+  to each step's underlying run."
+  [{:keys [id description status created-at finished-at steps]
+    pl-name :name}]
+  (layout/page (str "Pipeline " (subs (str id) 0 8))
+               [:div {:class "flex items-baseline gap-3 mb-4"}
+                [:h1 {:class "text-2xl font-bold"}
+                 "Pipeline " [:span {:class "font-mono text-base text-gray-600"}
+                              (subs (str id) 0 8)]]
+                [:span {:class (str "px-2 py-0.5 rounded text-xs font-medium "
+                                    (pipeline-status-class status))}
+                 (if (keyword? status) (clojure.core/name status) (str status))]]
+               [:dl {:class "grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 mb-6 text-sm"}
+                [:dt {:class "text-gray-500"} "Name"]
+                [:dd {:class "font-medium"} pl-name]
+                (when description
+                  [:<> [:dt {:class "text-gray-500"} "Description"]
+                   [:dd description]])
+                [:dt {:class "text-gray-500"} "Started"]
+                [:dd (fmt/fmt-instant created-at)]
+                (when finished-at
+                  [:<> [:dt {:class "text-gray-500"} "Finished"]
+                   [:dd (fmt/fmt-instant finished-at)]])
+                (when (and created-at finished-at)
+                  [:<> [:dt {:class "text-gray-500"} "Duration"]
+                   [:dd (fmt/fmt-duration created-at finished-at)]])]
+               [:h2 {:class "text-lg font-semibold mb-2"} "Steps"]
+               (if (empty? steps)
+                 [:p {:class "text-gray-400"} "(no steps recorded)"]
+                 [:table {:class "w-full text-sm border-collapse"}
+                  [:thead [:tr {:class "border-b bg-gray-100"}
+                           [:th {:class "p-2 text-left w-12"} "#"]
+                           [:th {:class "p-2 text-left"} "Step"]
+                           [:th {:class "p-2 text-left"} "Status"]
+                           [:th {:class "p-2 text-left"} "Run"]
+                           [:th {:class "p-2 text-left"} "Duration"]]]
+                  [:tbody
+                   (for [{step-name   :step-name
+                          step-order  :step-order
+                          step-status :status
+                          run-id      :run-id
+                          started-at  :started-at
+                          finished-at :finished-at} steps]
+                     [:tr {:class "border-b hover:bg-gray-50"}
+                      [:td {:class "p-2 text-gray-500"} (inc step-order)]
+                      [:td {:class "p-2 font-medium"} step-name]
+                      [:td {:class "p-2"}
+                       [:span {:class (str "px-2 py-0.5 rounded text-xs font-medium "
+                                           (pipeline-status-class step-status))}
+                        (if (keyword? step-status)
+                          (clojure.core/name step-status)
+                          (str step-status))]]
+                      [:td {:class "p-2"}
+                       (if run-id
+                         [:a {:href  (str "/runs/" run-id)
+                              :class "text-indigo-600 hover:underline font-mono text-xs"}
+                          (subs (str run-id) 0 8)]
+                         [:span {:class "text-gray-400"} "—"])]
+                      [:td {:class "p-2 text-xs text-gray-500"}
+                       (or (fmt/fmt-duration started-at finished-at) "—")]])]])))
+
+(defn not-found-page
+  "Generic 404 page for unknown resources."
+  [what]
+  (layout/page "Not found"
+               [:h1 {:class "text-2xl font-bold mb-2"} "Not found"]
+               [:p {:class "text-gray-600"} what " was not found."]))
+
 (defn experiments-page
   "List of experiments with metadata."
   [experiments run-counts]
@@ -411,13 +526,17 @@
                            [:th {:class "p-2 text-left"} "Runs"]
                            [:th {:class "p-2 text-left"} "Created"]]]
                   [:tbody
-                   (for [{:keys [description owner created-at]
+                   (for [{:keys [description owner created-at auto?]
                           exp-name :name} experiments]
                      [:tr {:class "border-b hover:bg-gray-50"}
                       [:td {:class "p-2"}
                        [:a {:href (str "/runs?experiment=" exp-name)
                             :class "text-indigo-600 hover:underline font-medium"}
-                        exp-name]]
+                        exp-name]
+                       (when auto?
+                         [:span {:class "ml-2 px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600"
+                                 :title "No metadata registered via create-experiment! — derived from runs"}
+                          "auto"])]
                       [:td {:class "p-2 text-gray-500 text-xs"}
                        (or description "—")]
                       [:td {:class "p-2 text-xs"} (or owner "—")]

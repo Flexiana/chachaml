@@ -17,10 +17,10 @@
                  {:name "step-2" :fn (fn [ctx]
                                        (ml/log-params {:prev (str (:prev-result ctx))})
                                        :two)}])]
-    (is (= "completed" (:status result)))
+    (is (= :completed (:status result)))
     (is (= 2 (count (:steps result))))
     (is (= :two (:result result)))
-    (is (every? #(= "completed" (:status %)) (:steps result)))
+    (is (every? #(= :completed (:status %)) (:steps result)))
     (is (every? #(some? (:run-id %)) (:steps result)))))
 
 (deftest pipeline-step-creates-tracked-run

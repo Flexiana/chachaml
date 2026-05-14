@@ -5,6 +5,7 @@
   foundation for a future chat-with-data layer. All handlers are
   Ring-compatible functions returning response maps."
   (:require [chachaml.core :as ml]
+            [chachaml.pipeline :as pipe]
             [chachaml.registry :as reg]
             [chachaml.repl :as repl]
             [chachaml.store.protocol :as p]
@@ -53,6 +54,19 @@
   "GET /api/models"
   [_request]
   (json-response (reg/models)))
+
+(defn list-pipelines-handler
+  "GET /api/pipelines"
+  [_request]
+  (json-response (pipe/pipelines)))
+
+(defn get-pipeline-handler
+  "GET /api/pipelines/:id — returns the pipeline plus its full step list."
+  [request]
+  (let [pl-id (get-in request [:path-params :id])]
+    (if-let [pl (pipe/pipeline pl-id)]
+      (json-response pl)
+      {:status 404 :body "Pipeline not found"})))
 
 (defn get-model-handler
   "GET /api/models/:name"

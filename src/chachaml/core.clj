@@ -377,16 +377,16 @@
 
   Returns nil if no matching run exists."
   [{:keys [experiment metric direction] :or {direction :max}}]
-  (let [run (first (search-runs {:experiment     experiment
-                                 :sort-by-metric metric
-                                 :sort-dir       (if (= direction :min) :asc :desc)
-                                 :limit          1}))]
-    (when run
-      (let [metrics  (p/-get-metrics (ctx/current-store) (:id run))
+  (let [r (first (search-runs {:experiment     experiment
+                               :sort-by-metric metric
+                               :sort-dir       (if (= direction :min) :asc :desc)
+                               :limit          1}))]
+    (when r
+      (let [metrics  (p/-get-metrics (ctx/current-store) (:id r))
             matching (filter #(= metric (:key %)) metrics)
             picker   (if (= direction :min) min-key max-key)
             best     (when (seq matching) (apply picker :value matching))]
-        (cond-> run
+        (cond-> r
           best (assoc :metric-value (:value best)
                       :metric-step  (:step best)))))))
 

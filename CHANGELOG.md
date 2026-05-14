@@ -7,7 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-(no changes yet)
+### Added
+
+- **`:md` artifact format** in `chachaml.serialize`. UTF-8 string
+  stored as `text/markdown`. Closes the documentation/API gap where
+  `(log-artifact "report.md" md {:format :md})` was a natural call
+  that previously threw a no-method error.
+- **`chachaml.core/current-run`** — re-export of
+  `chachaml.context/current-run` so the common "what run am I in?"
+  question doesn't need a separate require.
+- **`chachaml.core/compare-runs`** — re-export of
+  `chachaml.repl/compare-runs` to fix the asymmetry where
+  `/api/compare` existed but the Clojure-side fn lived in a REPL ns.
+- **Pipelines UI page** at `/pipelines`, with detail at
+  `/pipelines/:id` linking each step to its underlying run.
+  Navbar updated. Backed by `/api/pipelines` and `/api/pipelines/:id`
+  JSON endpoints. Closes the gap where pipeline records existed in
+  the store but had no UI surface.
+- **Auto-discovered experiments** on the `/experiments` page. When a
+  run uses an experiment that was never explicitly created via
+  `create-experiment!`, it now appears in the list (badged "auto").
+
+### Changed
+
+- **`best-run` returns enriched data**: result now includes
+  `:metric-value` and `:metric-step` so callers don't have to
+  re-query the metric history.
+- **`register-model` error is clearer** when `:artifact` looks like a
+  filesystem path. The `:artifact` option expects the *name* under
+  which `log-file` / `log-artifact` recorded the file
+  (e.g. `"checkpoints/foo.pt"`), not the on-disk path.
+- **Pipeline `:status` is now a keyword** (`:completed` / `:failed` /
+  `:running`), matching how runs report their status. Previously
+  pipelines returned the string `"completed"` while runs returned
+  the keyword `:completed`, forcing callers to type-switch.
+
+### Notes
+
+- These changes were proposed by clj-bdh, the first non-toy
+  downstream user of chachaml — the friction they hit while wiring up
+  a real ML showcase against v0.6.3 became this changelog. Test count:
+  205 → 219 (489 → 524 assertions); all green.
 
 ## [0.6.3] - 2026-04-27
 

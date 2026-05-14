@@ -72,6 +72,12 @@
                    " WHERE id = ?")]
              (conj vs step-id))))))
 
+(defn- str->status-kw
+  "Decode the TEXT status column into a keyword, matching how runs
+  return `:status :completed` (vs the legacy string `\"completed\"`)."
+  [s]
+  (when s (keyword s)))
+
 (defn- get-pipeline [store pipeline-id]
   (when-let [row (jdbc/execute-one!
                   (:datasource store)
@@ -79,7 +85,7 @@
     {:id          (:pipelines/id row)
      :name        (:pipelines/name row)
      :description (:pipelines/description row)
-     :status      (:pipelines/status row)
+     :status      (str->status-kw (:pipelines/status row))
      :created-at  (:pipelines/created_at row)
      :finished-at (:pipelines/finished_at row)}))
 
@@ -94,7 +100,7 @@
                 :step-name   (:pipeline_steps/step_name row)
                 :step-order  (:pipeline_steps/step_order row)
                 :run-id      (:pipeline_steps/run_id row)
-                :status      (:pipeline_steps/status row)
+                :status      (str->status-kw (:pipeline_steps/status row))
                 :started-at  (:pipeline_steps/started_at row)
                 :finished-at (:pipeline_steps/finished_at row)}))))
 
@@ -154,7 +160,7 @@
                nil
                (map-indexed vector steps))]
           (update-pipeline-status! store pipeline-id "completed")
-          {:pipeline-id pipeline-id :status "completed"
+          {:pipeline-id pipeline-id :status :completed
            :steps (get-pipeline-steps store pipeline-id)
            :result final-result})
         (catch Throwable t
@@ -173,7 +179,7 @@
                   {:id          (:pipelines/id row)
                    :name        (:pipelines/name row)
                    :description (:pipelines/description row)
-                   :status      (:pipelines/status row)
+                   :status      (str->status-kw (:pipelines/status row))
                    :created-at  (:pipelines/created_at row)
                    :finished-at (:pipelines/finished_at row)}))))))
 

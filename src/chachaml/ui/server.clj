@@ -13,6 +13,7 @@
       (.stop srv)  ; to shut down"
   (:require [chachaml.context :as ctx]
             [chachaml.core :as ml]
+            [chachaml.pipeline :as pipe]
             [chachaml.registry :as reg]
             [chachaml.repl :as repl]
             [chachaml.ui.api :as api]
@@ -82,9 +83,22 @@
 ;; --- Router ----------------------------------------------------------
 
 (defn- experiments-page-handler [_request]
-  (let [exps       (ml/experiments)
+  (let [explicit   (ml/experiments)
+        explicit-names (set (map :name explicit))
         all-runs   (ml/runs {:limit 10000})
-        run-counts (frequencies (map :experiment all-runs))]
+        run-counts (frequencies (map :experiment all-runs))
+        ;; Auto-discover experiments from runs that were never
+        ;; explicitly created via `create-experiment!`. They get a
+        ;; placeholder row so the page reflects what runs exist.
+        derived    (->> (keys run-counts)
+                        (remove explicit-names)
+                        (sort)
+                        (mapv (fn [n]
+                                {:name        n
+                                 :description nil
+                                 :owner       nil
+                                 :auto?       true})))
+        exps       (concat explicit derived)]
     {:status 200
      :headers {"Content-Type" "text/html; charset=utf-8"}
      :body (views/experiments-page exps run-counts)}))
@@ -119,6 +133,24 @@
    :headers {"Content-Type" "text/html; charset=utf-8"}
    :body (views/chat-page)})
 
+;; --- Pipelines ------------------------------------------------------
+
+(defn- pipelines-page-handler [_request]
+  {:status 200
+   :headers {"Content-Type" "text/html; charset=utf-8"}
+   :body (views/pipelines-page (pipe/pipelines))})
+
+(defn- pipeline-page-handler [request]
+  (let [pl-id (get-in request [:path-params :id])
+        pl    (pipe/pipeline pl-id)]
+    (if pl
+      {:status 200
+       :headers {"Content-Type" "text/html; charset=utf-8"}
+       :body (views/pipeline-page pl)}
+      {:status 404
+       :headers {"Content-Type" "text/html; charset=utf-8"}
+       :body (views/not-found-page (str "pipeline " pl-id))})))
+
 (def ^:private routes
   [["/" {:get {:handler (fn [_] {:status 302 :headers {"Location" "/runs"}})}}]
    ["/runs" {:get {:handler runs-handler}}]
@@ -128,6 +160,8 @@
    ["/search" {:get {:handler search-page-handler}}]
    ["/models" {:get {:handler models-handler}}]
    ["/models/:name" {:get {:handler model-handler}}]
+   ["/pipelines" {:get {:handler pipelines-page-handler}}]
+   ["/pipelines/:id" {:get {:handler pipeline-page-handler}}]
    ;; JSON API
    ["/api/runs" {:get {:handler api/list-runs-handler}}]
    ["/api/runs/:id" {:get {:handler api/get-run-handler}}]
@@ -145,6 +179,8 @@
    ["/api/search" {:get {:handler api/search-runs-handler}}]
    ["/api/model-note/:name" {:post {:handler api/set-model-note-handler}}]
    ["/api/diff/:name/:v1/:v2" {:get {:handler api/diff-versions-handler}}]
+   ["/api/pipelines" {:get {:handler api/list-pipelines-handler}}]
+   ["/api/pipelines/:id" {:get {:handler api/get-pipeline-handler}}]
    ["/api/chat" {:post {:handler api/chat-handler}}]
    ;; Write API (for non-Clojure clients)
    ["/api/w/runs" {:post {:handler api/start-run-handler}}]
