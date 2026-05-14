@@ -71,7 +71,7 @@
                :exec-args  {:source-paths ["src"]
                             :output-path  "target/doc"
                             :name         "chachaml"
-                            :version      "0.6.3"
+                            :version      "0.7.0"
                             :description  "REPL-first MLOps library for Clojure"
                             :metadata     {:doc/format :markdown}
                             :themes       [:rdash]

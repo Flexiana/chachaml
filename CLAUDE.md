@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-chachaml is at **v0.6.3** — a feature-complete MLOps library with 205
-tests / 489 assertions. All milestones M0–M19 are shipped, plus a full
+chachaml is at **v0.7.0** — a feature-complete MLOps library with 219
+tests / 524 assertions. All milestones M0–M19 are shipped, plus a full
 Diátaxis-shaped documentation set (TUTORIAL, DESIGN, WEB_UI, MCP, FAQ,
 TROUBLESHOOTING, six how-to guides) with cljdoc + gh-pages publishing.
+v0.7.0 added the pipelines UI surface and a handful of API ergonomics
+fixes from clj-bdh's downstream usage.
 
 ## What this is
 

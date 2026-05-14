@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.7.0] - 2026-05-14
+
 ### Added
 
 - **`:md` artifact format** in `chachaml.serialize`. UTF-8 string
