@@ -181,3 +181,51 @@
           "Passing a store value returns it as-is")
       (finally
         (alter-var-root #'ctx/*store* (constantly nil))))))
+
+;; --- current-run re-export ------------------------------------------
+
+(deftest current-run-nil-outside-with-run
+  (is (nil? (ml/current-run))))
+
+(deftest current-run-inside-with-run
+  (ml/with-run {:experiment "scoped"}
+    (let [r (ml/current-run)]
+      (is (some? r))
+      (is (= "scoped" (:experiment r))))))
+
+;; --- best-run enrichment --------------------------------------------
+
+(deftest best-run-includes-metric-value-and-step
+  (ml/with-run {:experiment "br"}
+    (ml/log-metric :acc 0.5 0)
+    (ml/log-metric :acc 0.9 5)
+    (ml/log-metric :acc 0.8 10))
+  (let [b (ml/best-run {:experiment "br" :metric :acc})]
+    (is (= 0.9 (:metric-value b)))
+    (is (= 5   (:metric-step  b)))))
+
+(deftest best-run-min-direction
+  (ml/with-run {:experiment "brmin"}
+    (ml/log-metric :loss 5.0 0)
+    (ml/log-metric :loss 3.0 5)
+    (ml/log-metric :loss 4.0 10))
+  (let [b (ml/best-run {:experiment "brmin" :metric :loss :direction :min})]
+    (is (= 3.0 (:metric-value b)))
+    (is (= 5   (:metric-step  b)))))
+
+(deftest best-run-nil-when-no-matching-run
+  (is (nil? (ml/best-run {:experiment "nope" :metric :acc}))))
+
+;; --- compare-runs re-export -----------------------------------------
+
+(deftest compare-runs-via-core
+  (let [a-id (ml/with-run {:experiment "cmp"}
+               (ml/log-params {:lr 0.01 :seed 1})
+               (:id (ml/current-run)))
+        b-id (ml/with-run {:experiment "cmp"}
+               (ml/log-params {:lr 0.02 :seed 1})
+               (:id (ml/current-run)))
+        diff (ml/compare-runs [a-id b-id])]
+    (is (= [a-id b-id] (:runs diff)))
+    (is (= {:seed 1} (-> diff :params :same)))
+    (is (= [0.01 0.02] (-> diff :params :differ :lr)))))

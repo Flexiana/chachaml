@@ -28,6 +28,20 @@
             [chachaml.serialize :as serialize]
             [chachaml.store.protocol :as p]))
 
+(defn- looks-like-fs-path?
+  "Heuristic: does `s` look like a filesystem path rather than an
+  artifact name? Used to give a better error when callers confuse the
+  two — `register-model` wants the *name* under which `log-file`
+  attached the artifact (e.g. `\"checkpoints/foo.pt\"`), not the
+  on-disk path (`/Users/.../foo.pt`)."
+  [s]
+  (and (string? s)
+       (or (re-find #"^[A-Za-z]:\\" s)            ;; Windows drive
+           (.startsWith ^String s "/")            ;; absolute Unix
+           (.startsWith ^String s "./")
+           (.startsWith ^String s "../")
+           (.startsWith ^String s (System/getProperty "user.home")))))
+
 (defn register-model
   "Register a model and create a new version pointing to a named
   artifact on the current run.
@@ -36,8 +50,11 @@
   - `model-name`        string identifier for the model.
 
   `opts` may include:
-  - `:artifact`         name of the artifact (on the current run) to
-                        register. Required unless `:artifact-id` given.
+  - `:artifact`         **name** of the artifact on the current run
+                        (matching what `log-file` / `log-artifact`
+                        recorded — e.g. `\"checkpoints/step_50.pt\"`,
+                        not a filesystem path). Required unless
+                        `:artifact-id` given.
   - `:artifact-id`      direct artifact id (skips the by-name lookup).
   - `:run-id`           run id (defaults to the current run).
   - `:stage`            initial stage (default `:none`). Promoting
@@ -58,7 +75,14 @@
         art-id   (or artifact-id
                      (some-> (p/-find-artifact store run-id artifact) :id)
                      (throw (ex-info
-                             "Artifact not found on run"
+                             (if (looks-like-fs-path? artifact)
+                               (str "Artifact not found on run. "
+                                    ":artifact expects the name passed "
+                                    "to log-file / log-artifact (e.g. "
+                                    "\"checkpoints/foo.pt\"), but you "
+                                    "passed what looks like a filesystem "
+                                    "path: " (pr-str artifact))
+                               "Artifact not found on run")
                              {:type ::missing-artifact
                               :run-id run-id :artifact artifact})))]
     (p/-register-model! store {:name        model-name

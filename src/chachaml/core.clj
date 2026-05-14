@@ -189,7 +189,9 @@
   `opts` may include:
   - `:format`        One of `:nippy` (default for arbitrary values),
                      `:edn`, `:bytes` (for `byte[]`), `:file` (for
-                     `java.io.File`/path string).
+                     `java.io.File`/path string), `:md` (UTF-8 string
+                     stored as `text/markdown`; renders inline in the
+                     web UI run-detail view).
   - `:content-type`  Override the default MIME content type.
 
   Format auto-detection: `byte[]` → `:bytes`, `java.io.File` →
@@ -267,6 +269,33 @@
   []
   (first (runs {:limit 1})))
 
+(defn current-run
+  "Return the run currently in scope (set by `with-run` / `deftracked`),
+  or nil if called outside a tracked block.
+
+  Re-exported from `chachaml.context` so callers don't need a separate
+  require for the common case."
+  []
+  (ctx/current-run))
+
+(defn compare-runs
+  "Compare params and the latest value per metric across `run-ids`.
+
+  Returns a plain map:
+
+      {:runs    [<id> …]
+       :params  {:same {…} :differ {…} :partial {…}}
+       :metrics {:same {…} :differ {…} :partial {…}}}
+
+  `:differ` and `:partial` map keys to a vector of values aligned to
+  `:runs`. `:partial` is for keys missing in at least one run.
+
+  This is the data backing the `/api/compare` HTTP endpoint and the
+  `/compare` UI page. Re-exported from `chachaml.repl` so callers
+  don't need an extra require for programmatic use."
+  [run-ids]
+  ((requiring-resolve 'chachaml.repl/compare-runs) run-ids))
+
 (defn my-last-run
   "Return the most recent run created by the current user."
   []
@@ -338,12 +367,28 @@
   "Find the run with the highest (or lowest) value for a metric.
 
   `(best-run {:experiment \"X\" :metric :accuracy})` returns the run
-  with the max accuracy. Pass `:direction :min` for metrics like loss."
+  with the max accuracy. Pass `:direction :min` for metrics like loss.
+
+  The returned map is the full run summary plus two convenience keys
+  derived from the run's metric history:
+
+  - `:metric-value`  the best value of `:metric` seen across all steps
+  - `:metric-step`   the step at which `:metric-value` occurred
+
+  Returns nil if no matching run exists."
   [{:keys [experiment metric direction] :or {direction :max}}]
-  (first (search-runs {:experiment     experiment
-                       :sort-by-metric metric
-                       :sort-dir       (if (= direction :min) :asc :desc)
-                       :limit          1})))
+  (let [run (first (search-runs {:experiment     experiment
+                                 :sort-by-metric metric
+                                 :sort-dir       (if (= direction :min) :asc :desc)
+                                 :limit          1}))]
+    (when run
+      (let [metrics  (p/-get-metrics (ctx/current-store) (:id run))
+            matching (filter #(= metric (:key %)) metrics)
+            picker   (if (= direction :min) min-key max-key)
+            best     (when (seq matching) (apply picker :value matching))]
+        (cond-> run
+          best (assoc :metric-value (:value best)
+                      :metric-step  (:step best)))))))
 
 ;; --- Experiment metadata ---------------------------------------------
 

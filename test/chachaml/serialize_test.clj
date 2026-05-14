@@ -58,7 +58,17 @@
   (is (= :nippy (s/format-from-content-type "application/x-nippy")))
   (is (= :edn   (s/format-from-content-type "application/edn")))
   (is (= :bytes (s/format-from-content-type "application/octet-stream")))
+  (is (= :md    (s/format-from-content-type "text/markdown")))
   (is (= :bytes (s/format-from-content-type "completely/unknown"))))
+
+(deftest md-round-trip
+  (let [v "# Heading\n\nSome **markdown** with $E=mc^2$."
+        {data :bytes ct :content-type} (s/encode {:format :md :value v})]
+    (is (= "text/markdown" ct))
+    (is (= v (s/decode {:format :md :bytes data})))))
+
+(deftest md-rejects-non-string
+  (is (thrown? Exception (s/encode {:format :md :value {:not "a string"}}))))
 
 ;; --- Property-based round-trip ---------------------------------------
 

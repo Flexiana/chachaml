@@ -10,6 +10,9 @@
   - `:bytes` — raw `byte[]` passthrough.
   - `:file`  — a `java.io.File` or path string. Encoded as bytes; on
     decode the bytes are returned (not written to a file).
+  - `:md`    — a UTF-8 string treated as Markdown. Stored with
+    `text/markdown` content type so the web UI's run-detail view
+    renders it inline (with KaTeX) instead of offering a download.
 
   Auto-detection of format from value type:
 
@@ -30,13 +33,15 @@
   {:nippy "application/x-nippy"
    :edn   "application/edn"
    :bytes "application/octet-stream"
-   :file  "application/octet-stream"})
+   :file  "application/octet-stream"
+   :md    "text/markdown"})
 
 (def ^:private content-type->format
   {"application/x-nippy"           :nippy
    "application/edn"               :edn
    "application/x-chachaml-table"  :edn
-   "application/octet-stream"      :bytes})
+   "application/octet-stream"      :bytes
+   "text/markdown"                 :md})
 
 (defn auto-format
   "Return the default `:format` keyword for a value based on its type.
@@ -108,3 +113,15 @@
 
 (defmethod decode :file [{data :bytes}]
   data)
+
+;; --- :md --------------------------------------------------------------
+
+(defmethod encode :md [{:keys [value]}]
+  (when-not (string? value)
+    (throw (ex-info ":md format requires a string value"
+                    {:type ::bad-value :got (class value)})))
+  {:bytes        (.getBytes ^String value StandardCharsets/UTF_8)
+   :content-type (content-type :md)})
+
+(defmethod decode :md [{data :bytes}]
+  (String. ^bytes data StandardCharsets/UTF_8))
