@@ -12,7 +12,7 @@ concurrency:
 jobs:
   lint-fmt:
     name: Lint + format check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,7 +30,7 @@ jobs:
 
   test:
     name: Tests (${{ matrix.tool }} / JDK ${{ matrix.jdk }})
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -63,7 +63,7 @@ jobs:
 
   coverage:
     name: Coverage gate
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: test
     steps:
       - uses: actions/checkout@v4
